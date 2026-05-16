@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Estoque — Obrasul</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+:root{--navy:#0B1D33;--orange:#E87722;--sidebar:220px;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:"Segoe UI",system-ui,sans-serif;background:#f1f5f9;color:#1e293b;}
+#login-overlay{position:fixed;inset:0;z-index:300;background:#0B1D33;display:flex;align-items:center;justify-content:center;}
+.login-card{background:#fff;border-radius:1rem;padding:2.5rem;width:100%;max-width:400px;box-shadow:0 20px 60px #0008;}
+.inp{width:100%;padding:.6rem .85rem;border:1px solid #cbd5e1;border-radius:.5rem;font-size:.9rem;outline:none;}
+.inp:focus{border-color:#E87722;box-shadow:0 0 0 3px #E8772222;}
+.btn-primary{width:100%;background:#E87722;color:#fff;border:none;padding:.7rem;border-radius:.5rem;font-weight:700;cursor:pointer;margin-top:1rem;}
+.btn-primary:hover{background:#d06918;}
+.sidebar{position:fixed;top:0;left:0;bottom:0;width:var(--sidebar);background:#0B1D33;display:flex;flex-direction:column;z-index:100;overflow-y:auto;transition:.25s;}
+.sidebar.collapsed{width:60px;}
+.sidebar-logo{padding:1rem;border-bottom:1px solid #1e3a5f;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.sidebar-logo img{width:140px;max-width:100%;object-fit:contain;transition:.25s;}
+.sidebar.collapsed .sidebar-logo img{width:32px;}
+.sidebar.collapsed .nav-label,.sidebar.collapsed .nav-item span.lbl,.sidebar.collapsed .sidebar-footer-text{display:none;}
+.sidebar.collapsed .nav-item{justify-content:center;padding:.55rem 0;}
+.nav-section{padding:.5rem 0;flex-shrink:0;}
+.nav-label{font-size:.6rem;font-weight:800;letter-spacing:.12em;color:#475569;padding:.75rem 1rem .25rem;text-transform:uppercase;}
+.nav-item{display:flex;align-items:center;gap:.6rem;padding:.55rem 1rem;font-size:.82rem;color:#94a3b8;cursor:pointer;transition:.15s;border-left:3px solid transparent;text-decoration:none;}
+.nav-item:hover{color:#fff;background:#1e3a5f;}
+.nav-item.active{color:#E87722;border-left-color:#E87722;background:#1e3a5f22;font-weight:600;}
+.nav-item .ic{font-size:1rem;width:1.2rem;text-align:center;flex-shrink:0;}
+.sidebar-footer{margin-top:auto;border-top:1px solid #1e3a5f;padding:.75rem 1rem;flex-shrink:0;}
+.user-info{font-size:.75rem;color:#94a3b8;line-height:1.5;}
+.user-info b{color:#fff;display:block;}
+.btn-logout{width:100%;margin-top:.5rem;background:#1e3a5f;color:#94a3b8;border:none;padding:.4rem;border-radius:.4rem;font-size:.75rem;cursor:pointer;}
+.btn-logout:hover{background:#ef4444;color:#fff;}
+#app{display:none;}
+.main{margin-left:var(--sidebar);min-height:100vh;display:flex;flex-direction:column;transition:.25s;}
+.main.expanded{margin-left:60px;}
+.top-bar{background:#fff;border-bottom:1px solid #e2e8f0;padding:.6rem 1.5rem;display:flex;align-items:center;gap:.75rem;position:sticky;top:0;z-index:50;}
+.top-bar h2{font-size:1rem;font-weight:700;color:#0B1D33;}
+.page-wrap{padding:1.5rem;flex:1;}
+.card{background:#fff;border-radius:.75rem;box-shadow:0 1px 4px #0001;}
+.btn{padding:.4rem .9rem;border-radius:.45rem;font-size:.8rem;font-weight:600;cursor:pointer;border:none;transition:.15s;}
+.btn-og{background:#E87722;color:#fff;}.btn-og:hover{background:#d06918;}
+.btn-outline{background:#fff;color:#374151;border:1px solid #e2e8f0;}.btn-outline:hover{background:#f8fafc;}
+.btn-sm{padding:.3rem .65rem;font-size:.75rem;}
+.btn-danger{background:#fef2f2;color:#dc2626;border:1px solid #fecaca;}.btn-danger:hover{background:#dc2626;color:#fff;}
+.btn-green{background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;}.btn-green:hover{background:#166534;color:#fff;}
+.btn-blue{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;}.btn-blue:hover{background:#1d4ed8;color:#fff;}
+.badge{display:inline-block;padding:.15rem .55rem;border-radius:9999px;font-size:.68rem;font-weight:700;}
+.badge.orange{background:#fff7ed;color:#c2410c;}
+.badge.blue{background:#eff6ff;color:#1d4ed8;}
+.badge.green{background:#f0fdf4;color:#166534;}
+.badge.red{background:#fef2f2;color:#dc2626;}
+.badge.gray{background:#f1f5f9;color:#475569;}
+.badge.yellow{background:#fefce8;color:#854d0e;}
+.badge.purple{background:#faf5ff;color:#7c3aed;}
+.badge.teal{background:#f0fdfa;color:#0f766e;}
+#modal-overlay{position:fixed;inset:0;background:#0006;z-index:200;display:none;align-items:center;justify-content:center;padding:1rem;}
+#modal-overlay.open{display:flex;}
+.modal{background:#fff;border-radius:1rem;width:100%;max-width:600px;max-height:92vh;overflow-y:auto;box-shadow:0 20px 60px #0004;}
+.modal-header{padding:1.1rem 1.4rem;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:1;}
+.modal-header h3{font-size:1rem;font-weight:700;color:#0B1D33;}
+.modal-body{padding:1.2rem 1.4rem;display:flex;flex-direction:column;gap:.85rem;}
+.modal-footer{padding:.9rem 1.4rem;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:.5rem;}
+.field label{display:block;font-size:.78rem;font-weight:600;color:#374151;margin-bottom:.3rem;}
+.field input,.field select,.field textarea{width:100%;padding:.5rem .75rem;border:1px solid #cbd5e1;border-radius:.45rem;font-size:.85rem;outline:none;transition:.15s;}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:#E87722;box-shadow:0 0 0 3px #E8772222;}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;}
+.field-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem;}
+#toast-area{position:fixed;bottom:1.5rem;right:1.5rem;z-index:999;display:flex;flex-direction:column;gap:.5rem;}
+.toast{background:#1e293b;color:#fff;padding:.65rem 1rem;border-radius:.5rem;font-size:.82rem;font-weight:500;box-shadow:0 4px 16px #0004;animation:fadeUp .25s ease;max-width:320px;}
+.toast.s{background:#166534;}.toast.e{background:#dc2626;}.toast.w{background:#92400e;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.tab-bar{display:flex;gap:0;border-bottom:2px solid #e2e8f0;margin-bottom:1.25rem;}
+.tab{padding:.55rem 1.1rem;font-size:.82rem;font-weight:600;color:#64748b;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:.15s;white-space:nowrap;}
+.tab.active{color:#E87722;border-bottom-color:#E87722;}
+.tab-panel{display:none;}.tab-panel.active{display:block;}
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.75rem;margin-bottom:1.5rem;}
+.kpi{background:#fff;border-radius:.75rem;padding:.9rem 1rem;border-left:4px solid #E87722;box-shadow:0 1px 4px #0001;}
+.kpi.green{border-left-color:#22c55e;}.kpi.red{border-left-color:#ef4444;}.kpi.blue{border-left-color:#3b82f6;}
+.kpi.yellow{border-left-color:#f59e0b;}.kpi.teal{border-left-color:#14b8a6;}
+.kpi-label{font-size:.65rem;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+.kpi-value{font-size:1.15rem;font-weight:800;color:#0B1D33;margin:.25rem 0 .1rem;}
+.kpi-sub{font-size:.68rem;color:#94a3b8;}
+.filter-bar{background:#fff;border-radius:.75rem;box-shadow:0 1px 4px #0001;padding:.65rem 1rem;margin-bottom:1rem;display:flex;align-items:center;gap:.65rem;flex-wrap:wrap;}
+.filter-bar input,.filter-bar select{padding:.35rem .6rem;border:1px solid #e2e8f0;border-radius:.4rem;font-size:.78rem;outline:none;color:#374151;}
+.filter-bar input:focus,.filter-bar select:focus{border-color:#E87722;}
+table{width:100%;border-collapse:collapse;font-size:.82rem;}
+th{background:#f8fafc;padding:.5rem .85rem;text-align:left;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e2e8f0;}
+td{padding:.55rem .85rem;border-bottom:1px solid #f1f5f9;color:#374151;vertical-align:middle;}
+tr:hover td{background:#fafafa;}
+.stock-bar{height:6px;border-radius:9999px;background:#e2e8f0;overflow:hidden;}
+.stock-fill{height:100%;border-radius:9999px;transition:.3s;}
+.alert-banner{background:#fef3c7;border:1px solid #fde68a;border-radius:.65rem;padding:.75rem 1rem;margin-bottom:1rem;display:flex;align-items:center;gap:.5rem;font-size:.82rem;color:#92400e;}
+</style>
+</head>
+<body>
+
+<div id="login-overlay">
+  <div class="login-card">
+    <div style="text-align:center;margin-bottom:1.5rem;">
+      <img id="li-logo" src="" alt="Obrasul" style="height:50px;object-fit:contain;margin:0 auto;">
+    </div>
+    <div class="field" style="margin-bottom:.75rem;">
+      <label>E-mail</label>
+      <input class="inp" type="email" id="li-email" placeholder="seu@email.com">
+    </div>
+    <div class="field" style="margin-bottom:.75rem;">
+      <label>Senha</label>
+      <input class="inp" type="password" id="li-pw" placeholder="••••••••">
+    </div>
+    <div id="li-err" style="color:#dc2626;font-size:.8rem;min-height:1.2rem;margin-top:.25rem;"></div>
+    <button class="btn-primary" onclick="doLogin()">Entrar</button>
+  </div>
+</div>
+
+<div id="app">
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <img id="sb-logo" src="" alt="Obrasul">
+  </div>
+  <div style="padding:.5rem .6rem;border-bottom:1px solid #1e3a5f;flex-shrink:0;">
+    <button onclick="toggleSidebar()" style="width:100%;background:#1e3a5f22;color:#94a3b8;border:none;border-radius:.4rem;padding:.35rem;font-size:.8rem;cursor:pointer;">☰</button>
+  </div>
+  <nav class="nav-section">
+    <div class="nav-label">Principal</div>
+    <a href="index.html" class="nav-item"><span class="ic">🏠</span><span class="lbl">Dashboard</span></a>
+    <a href="clientes.html" class="nav-item"><span class="ic">🏢</span><span class="lbl">Clientes</span></a>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-label">Operações</div>
+    <a href="orcamentos.html" class="nav-item"><span class="ic">📋</span><span class="lbl">Orçamentos</span></a>
+    <a href="obras.html" class="nav-item"><span class="ic">🏗️</span><span class="lbl">Obras</span></a>
+    <a href="financeiro.html" class="nav-item"><span class="ic">💰</span><span class="lbl">Financeiro</span></a>
+    <a href="contratos.html" class="nav-item"><span class="ic">📄</span><span class="lbl">Contratos</span></a>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-label">Recursos</div>
+    <a href="compras.html" class="nav-item"><span class="ic">🛒</span><span class="lbl">Compras</span></a>
+    <a href="estoque.html" class="nav-item active"><span class="ic">📦</span><span class="lbl">Estoque</span></a>
+    <a href="equipe.html" class="nav-item"><span class="ic">👷</span><span class="lbl">Equipe</span></a>
+    <a href="qualidade.html" class="nav-item"><span class="ic">✅</span><span class="lbl">Qualidade</span></a>
+    <a href="garantias.html" class="nav-item"><span class="ic">🛡️</span><span class="lbl">Garantias</span></a>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-label">Comunicação</div>
+    <a href="comunicados.html" class="nav-item"><span class="ic">📢</span><span class="lbl">Comunicados</span></a>
+    <a href="biblioteca.html" class="nav-item"><span class="ic">📚</span><span class="lbl">Biblioteca</span></a>
+    <a href="relatorios.html" class="nav-item"><span class="ic">📊</span><span class="lbl">Relatórios</span></a>
+    <a href="index.html#configuracoes" class="nav-item"><span class="ic">⚙️</span><span class="lbl">Configurações</span></a>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="user-info sidebar-footer-text">
+      <b id="sb-user-name">—</b>
+      <span id="sb-user-email">—</span>
+    </div>
+    <button class="btn-logout" onclick="doLogout()">Sair</button>
+  </div>
+</aside>
+
+<div class="main" id="main">
+  <div class="top-bar">
+    <span style="font-size:1.2rem;">📦</span>
+    <h2>Estoque</h2>
+    <div style="margin-left:auto;display:flex;gap:.5rem;">
+      <button class="btn btn-outline btn-sm" onclick="openMovimento()">↕ Movimentar</button>
+      <button class="btn btn-og btn-sm" onclick="openModal()">+ Novo Item</button>
+    </div>
+  </div>
+  <div class="page-wrap">
+
+    <div id="alert-area"></div>
+
+    <!-- KPIs -->
+    <div class="kpi-row">
+      <div class="kpi"><div class="kpi-label">Total Itens</div><div class="kpi-value" id="k-total">—</div><div class="kpi-sub">cadastrados</div></div>
+      <div class="kpi red"><div class="kpi-label">Abaixo Mínimo</div><div class="kpi-value" id="k-baixo">—</div><div class="kpi-sub">precisam reposição</div></div>
+      <div class="kpi yellow"><div class="kpi-label">Críticos</div><div class="kpi-value" id="k-critico">—</div><div class="kpi-sub">estoque zerado</div></div>
+      <div class="kpi green"><div class="kpi-label">Valor Total</div><div class="kpi-value" id="k-valor">—</div><div class="kpi-sub">em estoque</div></div>
+      <div class="kpi blue"><div class="kpi-label">Categorias</div><div class="kpi-value" id="k-cats">—</div><div class="kpi-sub">tipos de item</div></div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tab-bar">
+      <div class="tab active" onclick="switchTab('itens',this)">Itens</div>
+      <div class="tab" onclick="switchTab('categorias',this)">Por Categoria</div>
+      <div class="tab" onclick="switchTab('movimentos',this)">Movimentações</div>
+    </div>
+
+    <!-- Itens -->
+    <div id="tab-itens" class="tab-panel active">
+      <div class="filter-bar">
+        <input type="text" id="f-search" placeholder="Buscar item, código…" style="min-width:180px;" oninput="renderItens()">
+        <select id="f-cat" onchange="renderItens()"><option value="">Todas as categorias</option></select>
+        <select id="f-local" onchange="renderItens()"><option value="">Todos os locais</option></select>
+        <select id="f-status" onchange="renderItens()">
+          <option value="">Todos os status</option>
+          <option value="ok">OK</option>
+          <option value="baixo">Abaixo do mínimo</option>
+          <option value="critico">Crítico (zerado)</option>
+        </select>
+        <button class="btn btn-outline btn-sm" style="margin-left:auto;" onclick="loadData()">↻</button>
+      </div>
+      <div class="card" style="overflow:auto;">
+        <table>
+          <thead><tr>
+            <th>Item</th><th>Categoria</th><th>Local</th><th>Qtd</th><th>Un</th><th>Mínimo</th><th>Nível</th><th>Valor Unit.</th><th>Total</th><th>Status</th><th></th>
+          </tr></thead>
+          <tbody id="tbody-itens"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Categorias -->
+    <div id="tab-categorias" class="tab-panel">
+      <div id="cat-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.75rem;"></div>
+    </div>
+
+    <!-- Movimentações -->
+    <div id="tab-movimentos" class="tab-panel">
+      <div class="filter-bar">
+        <input type="text" id="f-search-mov" placeholder="Buscar item…" style="min-width:180px;" oninput="renderMovimentos()">
+        <select id="f-tipo-mov" onchange="renderMovimentos()">
+          <option value="">Todos</option>
+          <option value="entrada">Entradas</option>
+          <option value="saida">Saídas</option>
+          <option value="ajuste">Ajustes</option>
+        </select>
+      </div>
+      <div class="card" style="overflow:auto;">
+        <table>
+          <thead><tr>
+            <th>Data</th><th>Item</th><th>Tipo</th><th>Qtd</th><th>Motivo</th><th>Responsável</th>
+          </tr></thead>
+          <tbody id="tbody-movimentos"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<!-- Modal Item -->
+<div id="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modal-title">Novo Item</h3>
+      <button onclick="closeModal()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#64748b;">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field-row">
+        <div class="field"><label>Nome do Item*</label><input id="f-nome" type="text" placeholder="Ex: Cimento CP II"></div>
+        <div class="field"><label>Código / Referência</label><input id="f-codigo" type="text" placeholder="SKU-001"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Categoria*</label><input id="f-categoria" type="text" placeholder="Material, EPI, Ferramenta…" list="cat-list"></div>
+        <div class="field"><label>Local / Almoxarifado</label><input id="f-local-m" type="text" placeholder="Depósito Central, Obra X…"></div>
+      </div>
+      <datalist id="cat-list"></datalist>
+      <div class="field-row3">
+        <div class="field"><label>Quantidade Atual*</label><input id="f-qtd" type="number" step="0.01" placeholder="0"></div>
+        <div class="field"><label>Unidade</label><input id="f-unidade" type="text" placeholder="un, kg, m², saco…"></div>
+        <div class="field"><label>Qtd Mínima</label><input id="f-qtd-min" type="number" step="0.01" placeholder="0"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Valor Unitário (R$)</label><input id="f-valor" type="number" step="0.01" placeholder="0,00"></div>
+        <div class="field"><label>Fornecedor</label><input id="f-fornecedor" type="text" placeholder="Nome do fornecedor"></div>
+      </div>
+      <div class="field"><label>Observações</label><textarea id="f-obs" rows="2" placeholder="Informações adicionais…"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger btn-sm" id="btn-del" style="margin-right:auto;display:none;" onclick="deleteItem()">Excluir</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-og" onclick="saveItem()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Movimentação -->
+<div id="modal-mov">
+  <div style="position:fixed;inset:0;background:#0006;z-index:200;display:flex;align-items:center;justify-content:center;padding:1rem;">
+    <div class="modal" style="max-width:480px;">
+      <div class="modal-header">
+        <h3>Movimentar Estoque</h3>
+        <button onclick="closeMovimento()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#64748b;">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="field"><label>Item*</label><select id="mv-item"></select></div>
+        <div class="field-row">
+          <div class="field"><label>Tipo*</label>
+            <select id="mv-tipo">
+              <option value="entrada">Entrada</option>
+              <option value="saida">Saída</option>
+              <option value="ajuste">Ajuste</option>
+            </select>
+          </div>
+          <div class="field"><label>Quantidade*</label><input id="mv-qtd" type="number" step="0.01" placeholder="0"></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>Responsável</label><input id="mv-resp" type="text" placeholder="Nome"></div>
+          <div class="field"><label>Data</label><input id="mv-data" type="date"></div>
+        </div>
+        <div class="field"><label>Motivo / Observação</label><textarea id="mv-motivo" rows="2" placeholder="Compra, consumo em obra, ajuste de inventário…"></textarea></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeMovimento()">Cancelar</button>
+        <button class="btn btn-og" onclick="saveMovimento()">Registrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast-area"></div>
+
+<script>
+const SB_URL='https://jmjbdundgbbefvhvyffb.supabase.co';
+const SB_KEY='sb_publishable_CeLpQY1DjpWfv8U2lSMmew_Uqq6OchZ';
+const sb=supabase.createClient(SB_URL,SB_KEY);
+
+let _items=[];
+let _movs=[];
+let _editId=null;
+
+// ── AUTH ──────────────────────────────────────────────────────────
+async function boot(){
+  const logo=await getLogoUrl();
+  document.getElementById('li-logo').src=logo;
+  document.getElementById('sb-logo').src=logo;
+  document.getElementById('modal-mov').style.display='none';
+  const{data:{session}}=await sb.auth.getSession();
+  if(session) await enterApp(session.user);
+}
+
+async function getLogoUrl(){
+  try{const{data}=sb.storage.from('logos').getPublicUrl('obrasul-logo.png');return data.publicUrl;}catch(e){return '';}
+}
+
+async function doLogin(){
+  const email=document.getElementById('li-email').value.trim();
+  const pw=document.getElementById('li-pw').value;
+  document.getElementById('li-err').textContent='';
+  const{data,error}=await sb.auth.signInWithPassword({email,password:pw});
+  if(error){document.getElementById('li-err').textContent=error.message;return;}
+  await enterApp(data.user);
+}
+
+async function enterApp(user){
+  document.getElementById('sb-user-email').textContent=user.email;
+  const{data:p}=await sb.from('obs_perfis').select('nome_completo').eq('id',user.id).single();
+  document.getElementById('sb-user-name').textContent=p?.nome_completo||user.email;
+  document.getElementById('login-overlay').style.display='none';
+  document.getElementById('app').style.display='block';
+  await loadData();
+}
+
+async function doLogout(){await sb.auth.signOut();location.reload();}
+
+function toggleSidebar(){
+  document.getElementById('sidebar').classList.toggle('collapsed');
+  document.getElementById('main').classList.toggle('expanded');
+}
+
+function switchTab(id,el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tab-'+id).classList.add('active');
+  if(id==='categorias') renderCategorias();
+  if(id==='movimentos') renderMovimentos();
+}
+
+// ── DATA ──────────────────────────────────────────────────────────
+async function loadData(){
+  const[{data:items},{data:movs}]=await Promise.all([
+    sb.from('obs_stock').select('*').eq('ativo',true).order('nome'),
+    sb.from('obs_stock_movimentos').select('*, obs_stock(nome,unidade)').order('created_at',{ascending:false}).limit(200)
+  ]);
+  _items=items||[];
+  _movs=movs||[];
+  populateFilters();
+  updateKPIs();
+  checkAlerts();
+  renderItens();
+}
+
+function populateFilters(){
+  const cats=[...new Set(_items.map(i=>i.categoria).filter(Boolean))].sort();
+  const locals=[...new Set(_items.map(i=>i.local).filter(Boolean))].sort();
+  document.getElementById('f-cat').innerHTML='<option value="">Todas as categorias</option>'+cats.map(c=>`<option>${c}</option>`).join('');
+  document.getElementById('f-local').innerHTML='<option value="">Todos os locais</option>'+locals.map(l=>`<option>${l}</option>`).join('');
+  document.getElementById('cat-list').innerHTML=cats.map(c=>`<option value="${c}">`).join('');
+  document.getElementById('mv-item').innerHTML='<option value="">Selecione o item…</option>'+_items.map(i=>`<option value="${i.id}">${i.nome} (${i.quantidade||0} ${i.unidade||'un'})</option>`).join('');
+}
+
+function stockStatus(item){
+  const q=item.quantidade||0;
+  const m=item.quantidade_minima||0;
+  if(q<=0) return 'critico';
+  if(m>0&&q<m) return 'baixo';
+  return 'ok';
+}
+
+function updateKPIs(){
+  document.getElementById('k-total').textContent=_items.length;
+  document.getElementById('k-baixo').textContent=_items.filter(i=>stockStatus(i)==='baixo').length;
+  document.getElementById('k-critico').textContent=_items.filter(i=>stockStatus(i)==='critico').length;
+  const valor=_items.reduce((s,i)=>s+(i.quantidade||0)*(i.valor_unitario||0),0);
+  document.getElementById('k-valor').textContent='R$ '+valor.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0});
+  const cats=new Set(_items.map(i=>i.categoria).filter(Boolean));
+  document.getElementById('k-cats').textContent=cats.size;
+}
+
+function checkAlerts(){
+  const alerta=_items.filter(i=>stockStatus(i)!=='ok');
+  const area=document.getElementById('alert-area');
+  if(!alerta.length){area.innerHTML='';return;}
+  area.innerHTML=`<div class="alert-banner">⚠️ <strong>${alerta.length} item(s)</strong> abaixo do estoque mínimo ou zerados. Verifique a aba Itens.</div>`;
+}
+
+function renderItens(){
+  const search=document.getElementById('f-search').value.toLowerCase();
+  const cat=document.getElementById('f-cat').value;
+  const local=document.getElementById('f-local').value;
+  const status=document.getElementById('f-status').value;
+  let list=_items;
+  if(search) list=list.filter(i=>(i.nome||'').toLowerCase().includes(search)||(i.codigo||'').toLowerCase().includes(search));
+  if(cat) list=list.filter(i=>i.categoria===cat);
+  if(local) list=list.filter(i=>i.local===local);
+  if(status) list=list.filter(i=>stockStatus(i)===status);
+  const tbody=document.getElementById('tbody-itens');
+  if(!list.length){tbody.innerHTML='<tr><td colspan="11" style="text-align:center;color:#94a3b8;padding:2rem;">Nenhum item encontrado.</td></tr>';return;}
+  tbody.innerHTML=list.map(item=>{
+    const st=stockStatus(item);
+    const q=item.quantidade||0;
+    const m=item.quantidade_minima||0;
+    const pct=m>0?Math.min(100,Math.round(q/m*100)):100;
+    const fillColor=st==='critico'?'#ef4444':st==='baixo'?'#f59e0b':'#22c55e';
+    const total=(q*(item.valor_unitario||0)).toLocaleString('pt-BR',{minimumFractionDigits:2});
+    return `<tr>
+      <td><span style="font-weight:600;">${item.nome}</span>${item.codigo?`<br><span style="font-size:.7rem;color:#94a3b8;">${item.codigo}</span>`:''}</td>
+      <td>${item.categoria||'—'}</td>
+      <td style="font-size:.78rem;">${item.local||'—'}</td>
+      <td style="font-weight:700;">${q}</td>
+      <td>${item.unidade||'un'}</td>
+      <td style="color:#64748b;">${m||'—'}</td>
+      <td style="min-width:80px;"><div class="stock-bar"><div class="stock-fill" style="width:${pct}%;background:${fillColor};"></div></div></td>
+      <td>R$ ${(item.valor_unitario||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+      <td>R$ ${total}</td>
+      <td>${badgeStatus(st)}</td>
+      <td><button class="btn btn-outline btn-sm" onclick="editItem('${item.id}')">✏️</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderCategorias(){
+  const map={};
+  _items.forEach(i=>{
+    const c=i.categoria||'Sem Categoria';
+    if(!map[c])map[c]={count:0,valor:0};
+    map[c].count++;
+    map[c].valor+=(i.quantidade||0)*(i.valor_unitario||0);
+  });
+  document.getElementById('cat-grid').innerHTML=Object.entries(map).sort((a,b)=>b[1].count-a[1].count).map(([cat,d])=>`
+    <div class="card" style="padding:.9rem 1rem;">
+      <div style="font-weight:700;font-size:.88rem;color:#0B1D33;margin-bottom:.25rem;">📦 ${cat}</div>
+      <div style="font-size:1.15rem;font-weight:800;color:#E87722;">${d.count} <span style="font-size:.7rem;font-weight:400;color:#64748b;">itens</span></div>
+      <div style="font-size:.75rem;color:#64748b;">R$ ${d.valor.toLocaleString('pt-BR',{minimumFractionDigits:0})}</div>
+    </div>
+  `).join('')||'<div style="color:#94a3b8;padding:1rem;font-size:.85rem;">Nenhum item cadastrado.</div>';
+}
+
+function renderMovimentos(){
+  const search=document.getElementById('f-search-mov').value.toLowerCase();
+  const tipo=document.getElementById('f-tipo-mov').value;
+  let list=_movs;
+  if(search) list=list.filter(m=>(m.obs_stock?.nome||'').toLowerCase().includes(search)||(m.motivo||'').toLowerCase().includes(search));
+  if(tipo) list=list.filter(m=>m.tipo===tipo);
+  const tbody=document.getElementById('tbody-movimentos');
+  if(!list.length){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:2rem;">Nenhuma movimentação.</td></tr>';return;}
+  tbody.innerHTML=list.map(m=>`<tr>
+    <td>${fmtDate(m.created_at)}</td>
+    <td><span style="font-weight:600;">${m.obs_stock?.nome||'—'}</span></td>
+    <td>${badgeMov(m.tipo)}</td>
+    <td style="font-weight:700;color:${m.tipo==='saida'?'#dc2626':m.tipo==='entrada'?'#166534':'#1d4ed8'};">${m.tipo==='saida'?'-':'+'} ${m.quantidade} ${m.obs_stock?.unidade||''}</td>
+    <td style="font-size:.78rem;">${m.motivo||'—'}</td>
+    <td style="font-size:.78rem;">${m.responsavel||'—'}</td>
+  </tr>`).join('');
+}
+
+// ── MODAL ITEM ────────────────────────────────────────────────────
+function openModal(){
+  _editId=null;
+  document.getElementById('modal-title').textContent='Novo Item';
+  document.getElementById('btn-del').style.display='none';
+  clearForm();
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function editItem(id){
+  const item=_items.find(x=>x.id===id);
+  if(!item)return;
+  _editId=id;
+  document.getElementById('modal-title').textContent='Editar Item';
+  document.getElementById('btn-del').style.display='block';
+  document.getElementById('f-nome').value=item.nome||'';
+  document.getElementById('f-codigo').value=item.codigo||'';
+  document.getElementById('f-categoria').value=item.categoria||'';
+  document.getElementById('f-local-m').value=item.local||'';
+  document.getElementById('f-qtd').value=item.quantidade||'';
+  document.getElementById('f-unidade').value=item.unidade||'';
+  document.getElementById('f-qtd-min').value=item.quantidade_minima||'';
+  document.getElementById('f-valor').value=item.valor_unitario||'';
+  document.getElementById('f-fornecedor').value=item.fornecedor||'';
+  document.getElementById('f-obs').value=item.observacoes||'';
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function closeModal(){document.getElementById('modal-overlay').classList.remove('open');}
+
+function clearForm(){
+  ['f-nome','f-codigo','f-categoria','f-local-m','f-qtd','f-unidade','f-qtd-min','f-valor','f-fornecedor','f-obs'].forEach(id=>{document.getElementById(id).value='';});
+}
+
+async function saveItem(){
+  const nome=document.getElementById('f-nome').value.trim();
+  if(!nome){toast('Nome obrigatório','w');return;}
+  const payload={
+    nome,
+    codigo:document.getElementById('f-codigo').value.trim(),
+    categoria:document.getElementById('f-categoria').value.trim(),
+    local:document.getElementById('f-local-m').value.trim(),
+    quantidade:parseFloat(document.getElementById('f-qtd').value)||0,
+    unidade:document.getElementById('f-unidade').value.trim()||'un',
+    quantidade_minima:parseFloat(document.getElementById('f-qtd-min').value)||0,
+    valor_unitario:parseFloat(document.getElementById('f-valor').value)||0,
+    fornecedor:document.getElementById('f-fornecedor').value.trim(),
+    observacoes:document.getElementById('f-obs').value.trim(),
+    ativo:true
+  };
+  let error;
+  if(_editId){
+    ({error}=await sb.from('obs_stock').update(payload).eq('id',_editId));
+  } else {
+    ({error}=await sb.from('obs_stock').insert(payload));
+  }
+  if(error){toast(error.message,'e');return;}
+  toast(_editId?'Item atualizado':'Item cadastrado','s');
+  closeModal();
+  await loadData();
+}
+
+async function deleteItem(){
+  if(!confirm('Excluir este item do estoque?'))return;
+  const{error}=await sb.from('obs_stock').update({ativo:false}).eq('id',_editId);
+  if(error){toast(error.message,'e');return;}
+  toast('Item removido','s');
+  closeModal();
+  await loadData();
+}
+
+// ── MODAL MOVIMENTAÇÃO ────────────────────────────────────────────
+function openMovimento(){
+  const today=new Date().toISOString().split('T')[0];
+  document.getElementById('mv-data').value=today;
+  document.getElementById('mv-qtd').value='';
+  document.getElementById('mv-resp').value='';
+  document.getElementById('mv-motivo').value='';
+  document.getElementById('modal-mov').style.display='flex';
+}
+
+function closeMovimento(){document.getElementById('modal-mov').style.display='none';}
+
+async function saveMovimento(){
+  const itemId=document.getElementById('mv-item').value;
+  const tipo=document.getElementById('mv-tipo').value;
+  const qtd=parseFloat(document.getElementById('mv-qtd').value)||0;
+  if(!itemId){toast('Selecione o item','w');return;}
+  if(!qtd){toast('Quantidade obrigatória','w');return;}
+  const{error:mvErr}=await sb.from('obs_stock_movimentos').insert({
+    stock_id:itemId,
+    tipo,
+    quantidade:qtd,
+    responsavel:document.getElementById('mv-resp').value.trim(),
+    motivo:document.getElementById('mv-motivo').value.trim()
+  });
+  if(mvErr){toast(mvErr.message,'e');return;}
+  const item=_items.find(x=>x.id===itemId);
+  let novaQtd=(item?.quantidade||0);
+  if(tipo==='entrada') novaQtd+=qtd;
+  else if(tipo==='saida') novaQtd=Math.max(0,novaQtd-qtd);
+  else novaQtd=qtd;
+  const{error:upErr}=await sb.from('obs_stock').update({quantidade:novaQtd}).eq('id',itemId);
+  if(upErr){toast(upErr.message,'e');return;}
+  toast('Movimentação registrada','s');
+  closeMovimento();
+  await loadData();
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────
+function badgeStatus(s){
+  const map={ok:'green',baixo:'yellow',critico:'red'};
+  const label={ok:'OK',baixo:'Baixo',critico:'Crítico'};
+  return `<span class="badge ${map[s]||'gray'}">${label[s]||s}</span>`;
+}
+
+function badgeMov(t){
+  const map={entrada:'green',saida:'red',ajuste:'blue'};
+  const label={entrada:'Entrada',saida:'Saída',ajuste:'Ajuste'};
+  return `<span class="badge ${map[t]||'gray'}">${label[t]||t}</span>`;
+}
+
+function fmtDate(d){
+  if(!d)return '—';
+  const dt=new Date(d);
+  return dt.toLocaleDateString('pt-BR')+' '+dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+}
+
+function toast(msg,type=''){
+  const el=document.createElement('div');
+  el.className='toast'+(type?' '+type:'');
+  el.textContent=msg;
+  document.getElementById('toast-area').appendChild(el);
+  setTimeout(()=>el.remove(),3500);
+}
+
+boot();
+</script>
+</body>
+</html>

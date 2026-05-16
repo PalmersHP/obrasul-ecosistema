@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Garantias — Obrasul</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+:root{--navy:#0B1D33;--orange:#E87722;--sidebar:220px;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:"Segoe UI",system-ui,sans-serif;background:#f1f5f9;color:#1e293b;}
+#login-overlay{position:fixed;inset:0;z-index:300;background:#0B1D33;display:flex;align-items:center;justify-content:center;}
+.login-card{background:#fff;border-radius:1rem;padding:2.5rem;width:100%;max-width:400px;box-shadow:0 20px 60px #0008;}
+.inp{width:100%;padding:.6rem .85rem;border:1px solid #cbd5e1;border-radius:.5rem;font-size:.9rem;outline:none;}
+.inp:focus{border-color:#E87722;box-shadow:0 0 0 3px #E8772222;}
+.btn-primary{width:100%;background:#E87722;color:#fff;border:none;padding:.7rem;border-radius:.5rem;font-weight:700;cursor:pointer;margin-top:1rem;}
+.btn-primary:hover{background:#d06918;}
+.sidebar{position:fixed;top:0;left:0;bottom:0;width:var(--sidebar);background:#0B1D33;display:flex;flex-direction:column;z-index:100;overflow-y:auto;transition:.25s;}
+.sidebar.collapsed{width:60px;}
+.sidebar-logo{padding:1rem;border-bottom:1px solid #1e3a5f;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.sidebar-logo img{width:140px;max-width:100%;object-fit:contain;transition:.25s;}
+.sidebar.collapsed .sidebar-logo img{width:32px;}
+.sidebar.collapsed .nav-label,.sidebar.collapsed .nav-item span.lbl,.sidebar.collapsed .sidebar-footer-text{display:none;}
+.sidebar.collapsed .nav-item{justify-content:center;padding:.55rem 0;}
+.nav-section{padding:.5rem 0;flex-shrink:0;}
+.nav-label{font-size:.6rem;font-weight:800;letter-spacing:.12em;color:#475569;padding:.75rem 1rem .25rem;text-transform:uppercase;}
+.nav-item{display:flex;align-items:center;gap:.6rem;padding:.55rem 1rem;font-size:.82rem;color:#94a3b8;cursor:pointer;transition:.15s;border-left:3px solid transparent;text-decoration:none;}
+.nav-item:hover{color:#fff;background:#1e3a5f;}
+.nav-item.active{color:#E87722;border-left-color:#E87722;background:#1e3a5f22;font-weight:600;}
+.nav-item .ic{font-size:1rem;width:1.2rem;text-align:center;flex-shrink:0;}
+.sidebar-footer{margin-top:auto;border-top:1px solid #1e3a5f;padding:.75rem 1rem;flex-shrink:0;}
+.user-info{font-size:.75rem;color:#94a3b8;line-height:1.5;}
+.user-info b{color:#fff;display:block;}
+.btn-logout{width:100%;margin-top:.5rem;background:#1e3a5f;color:#94a3b8;border:none;padding:.4rem;border-radius:.4rem;font-size:.75rem;cursor:pointer;}
+.btn-logout:hover{background:#ef4444;color:#fff;}
+#app{display:none;}
+.main{margin-left:var(--sidebar);min-height:100vh;display:flex;flex-direction:column;transition:.25s;}
+.main.expanded{margin-left:60px;}
+.top-bar{background:#fff;border-bottom:1px solid #e2e8f0;padding:.6rem 1.5rem;display:flex;align-items:center;gap:.75rem;position:sticky;top:0;z-index:50;}
+.top-bar h2{font-size:1rem;font-weight:700;color:#0B1D33;}
+.page-wrap{padding:1.5rem;flex:1;}
+.card{background:#fff;border-radius:.75rem;box-shadow:0 1px 4px #0001;}
+.btn{padding:.4rem .9rem;border-radius:.45rem;font-size:.8rem;font-weight:600;cursor:pointer;border:none;transition:.15s;}
+.btn-og{background:#E87722;color:#fff;}.btn-og:hover{background:#d06918;}
+.btn-outline{background:#fff;color:#374151;border:1px solid #e2e8f0;}.btn-outline:hover{background:#f8fafc;}
+.btn-sm{padding:.3rem .65rem;font-size:.75rem;}
+.btn-danger{background:#fef2f2;color:#dc2626;border:1px solid #fecaca;}.btn-danger:hover{background:#dc2626;color:#fff;}
+.btn-green{background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;}.btn-green:hover{background:#166534;color:#fff;}
+.btn-blue{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;}.btn-blue:hover{background:#1d4ed8;color:#fff;}
+.badge{display:inline-block;padding:.15rem .55rem;border-radius:9999px;font-size:.68rem;font-weight:700;}
+.badge.orange{background:#fff7ed;color:#c2410c;}
+.badge.blue{background:#eff6ff;color:#1d4ed8;}
+.badge.green{background:#f0fdf4;color:#166534;}
+.badge.red{background:#fef2f2;color:#dc2626;}
+.badge.gray{background:#f1f5f9;color:#475569;}
+.badge.yellow{background:#fefce8;color:#854d0e;}
+.badge.purple{background:#faf5ff;color:#7c3aed;}
+.badge.teal{background:#f0fdfa;color:#0f766e;}
+#modal-overlay{position:fixed;inset:0;background:#0006;z-index:200;display:none;align-items:center;justify-content:center;padding:1rem;}
+#modal-overlay.open{display:flex;}
+.modal{background:#fff;border-radius:1rem;width:100%;max-width:640px;max-height:92vh;overflow-y:auto;box-shadow:0 20px 60px #0004;}
+.modal-header{padding:1.1rem 1.4rem;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:1;}
+.modal-header h3{font-size:1rem;font-weight:700;color:#0B1D33;}
+.modal-body{padding:1.2rem 1.4rem;display:flex;flex-direction:column;gap:.85rem;}
+.modal-footer{padding:.9rem 1.4rem;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:.5rem;}
+.field label{display:block;font-size:.78rem;font-weight:600;color:#374151;margin-bottom:.3rem;}
+.field input,.field select,.field textarea{width:100%;padding:.5rem .75rem;border:1px solid #cbd5e1;border-radius:.45rem;font-size:.85rem;outline:none;transition:.15s;}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:#E87722;box-shadow:0 0 0 3px #E8772222;}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;}
+.field-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem;}
+#toast-area{position:fixed;bottom:1.5rem;right:1.5rem;z-index:999;display:flex;flex-direction:column;gap:.5rem;}
+.toast{background:#1e293b;color:#fff;padding:.65rem 1rem;border-radius:.5rem;font-size:.82rem;font-weight:500;box-shadow:0 4px 16px #0004;animation:fadeUp .25s ease;max-width:320px;}
+.toast.s{background:#166534;}.toast.e{background:#dc2626;}.toast.w{background:#92400e;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.tab-bar{display:flex;gap:0;border-bottom:2px solid #e2e8f0;margin-bottom:1.25rem;}
+.tab{padding:.55rem 1.1rem;font-size:.82rem;font-weight:600;color:#64748b;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:.15s;white-space:nowrap;}
+.tab.active{color:#E87722;border-bottom-color:#E87722;}
+.tab-panel{display:none;}.tab-panel.active{display:block;}
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.75rem;margin-bottom:1.5rem;}
+.kpi{background:#fff;border-radius:.75rem;padding:.9rem 1rem;border-left:4px solid #E87722;box-shadow:0 1px 4px #0001;}
+.kpi.green{border-left-color:#22c55e;}.kpi.red{border-left-color:#ef4444;}.kpi.blue{border-left-color:#3b82f6;}
+.kpi.yellow{border-left-color:#f59e0b;}.kpi.teal{border-left-color:#14b8a6;}.kpi.purple{border-left-color:#8b5cf6;}
+.kpi-label{font-size:.65rem;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+.kpi-value{font-size:1.15rem;font-weight:800;color:#0B1D33;margin:.25rem 0 .1rem;}
+.kpi-sub{font-size:.68rem;color:#94a3b8;}
+.filter-bar{background:#fff;border-radius:.75rem;box-shadow:0 1px 4px #0001;padding:.65rem 1rem;margin-bottom:1rem;display:flex;align-items:center;gap:.65rem;flex-wrap:wrap;}
+.filter-bar input,.filter-bar select{padding:.35rem .6rem;border:1px solid #e2e8f0;border-radius:.4rem;font-size:.78rem;outline:none;color:#374151;}
+.filter-bar input:focus,.filter-bar select:focus{border-color:#E87722;}
+table{width:100%;border-collapse:collapse;font-size:.82rem;}
+th{background:#f8fafc;padding:.5rem .85rem;text-align:left;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e2e8f0;}
+td{padding:.55rem .85rem;border-bottom:1px solid #f1f5f9;color:#374151;vertical-align:middle;}
+tr:hover td{background:#fafafa;}
+.chamado-card{background:#fff;border:1px solid #e2e8f0;border-radius:.65rem;padding:.9rem 1rem;margin-bottom:.6rem;transition:.15s;cursor:pointer;}
+.chamado-card:hover{border-color:#E87722;box-shadow:0 2px 8px #E8772211;}
+.chamado-card.urgente{border-left:3px solid #dc2626;}
+.chamado-card.vencido{border-left:3px solid #f59e0b;}
+.prazo-bar{height:4px;border-radius:9999px;background:#e2e8f0;margin-top:.4rem;}
+.prazo-fill{height:100%;border-radius:9999px;}
+.alert-banner{background:#fef3c7;border:1px solid #fde68a;border-radius:.65rem;padding:.75rem 1rem;margin-bottom:1rem;display:flex;align-items:center;gap:.5rem;font-size:.82rem;color:#92400e;}
+.timeline{border-left:2px solid #e2e8f0;padding-left:1rem;margin-top:.75rem;}
+.timeline-item{margin-bottom:.75rem;position:relative;}
+.timeline-item::before{content:'';position:absolute;left:-1.35rem;top:.25rem;width:.6rem;height:.6rem;border-radius:50%;background:#E87722;border:2px solid #fff;}
+</style>
+</head>
+<body>
+
+<div id="login-overlay">
+  <div class="login-card">
+    <div style="text-align:center;margin-bottom:1.5rem;">
+      <img id="li-logo" src="" alt="Obrasul" style="height:50px;object-fit:contain;margin:0 auto;">
+    </div>
+    <div class="field" style="margin-bottom:.75rem;">
+      <label>E-mail</label>
+      <input class="inp" type="email" id="li-email" placeholder="seu@email.com">
+    </div>
+    <div class="field" style="margin-bottom:.75rem;">
+      <label>Senha</label>
+      <input class="inp" type="password" id="li-pw" placeholder="••••••••">
+    </div>
+    <div id="li-err" style="color:#dc2626;font-size:.8rem;min-height:1.2rem;margin-top:.25rem;"></div>
+    <button class="btn-primary" onclick="doLogin()">Entrar</button>
+  </div>
+</div>
+
+<div id="app">
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <img id="sb-logo" src="" alt="Obrasul">
+  </div>
+  <div style="padding:.5rem .6rem;border-bottom:1px solid #1e3a5f;flex-shrink:0;">
+    <button onclick="toggleSidebar()" style="width:100%;background:#1e3a5f22;color:#94a3b8;border:none;border-radius:.4rem;padding:.35rem;font-size:.8rem;cursor:pointer;">☰</button>
+  </div>
+  <nav class="nav-section">
+    <div class="nav-label">Principal</div>
+    <a href="index.html" class="nav-item"><span class="ic">🏠</span><span class="lbl">Dashboard</span></a>
+    <a href="clientes.html" class="nav-item"><span class="ic">🏢</span><span class="lbl">Clientes</span></a>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-label">Operações</div>
+    <a href="orcamentos.html" class="nav-item"><span class="ic">📋</span><span class="lbl">Orçamentos</span></a>
+    <a href="obras.html" class="nav-item"><span class="ic">🏗️</span><span class="lbl">Obras</span></a>
+    <a href="financeiro.html" class="nav-item"><span class="ic">💰</span><span class="lbl">Financeiro</span></a>
+    <a href="contratos.html" class="nav-item"><span class="ic">📄</span><span class="lbl">Contratos</span></a>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-label">Recursos</div>
+    <a href="compras.html" class="nav-item"><span class="ic">🛒</span><span class="lbl">Compras</span></a>
+    <a href="estoque.html" class="nav-item"><span class="ic">📦</span><span class="lbl">Estoque</span></a>
+    <a href="equipe.html" class="nav-item"><span class="ic">👷</span><span class="lbl">Equipe</span></a>
+    <a href="qualidade.html" class="nav-item"><span class="ic">✅</span><span class="lbl">Qualidade</span></a>
+    <a href="garantias.html" class="nav-item active"><span class="ic">🛡️</span><span class="lbl">Garantias</span></a>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-label">Comunicação</div>
+    <a href="comunicados.html" class="nav-item"><span class="ic">📢</span><span class="lbl">Comunicados</span></a>
+    <a href="biblioteca.html" class="nav-item"><span class="ic">📚</span><span class="lbl">Biblioteca</span></a>
+    <a href="relatorios.html" class="nav-item"><span class="ic">📊</span><span class="lbl">Relatórios</span></a>
+    <a href="index.html#configuracoes" class="nav-item"><span class="ic">⚙️</span><span class="lbl">Configurações</span></a>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="user-info sidebar-footer-text">
+      <b id="sb-user-name">—</b>
+      <span id="sb-user-email">—</span>
+    </div>
+    <button class="btn-logout" onclick="doLogout()">Sair</button>
+  </div>
+</aside>
+
+<div class="main" id="main">
+  <div class="top-bar">
+    <span style="font-size:1.2rem;">🛡️</span>
+    <h2>Garantias</h2>
+    <div style="margin-left:auto;display:flex;gap:.5rem;">
+      <button class="btn btn-og btn-sm" onclick="openModal()">+ Novo Chamado</button>
+    </div>
+  </div>
+  <div class="page-wrap">
+
+    <div id="alert-area"></div>
+
+    <!-- KPIs -->
+    <div class="kpi-row">
+      <div class="kpi"><div class="kpi-label">Total Chamados</div><div class="kpi-value" id="k-total">—</div><div class="kpi-sub">registrados</div></div>
+      <div class="kpi yellow"><div class="kpi-label">Abertos</div><div class="kpi-value" id="k-abertos">—</div><div class="kpi-sub">em andamento</div></div>
+      <div class="kpi red"><div class="kpi-label">Vencidos</div><div class="kpi-value" id="k-vencidos">—</div><div class="kpi-sub">prazo expirado</div></div>
+      <div class="kpi green"><div class="kpi-label">Resolvidos</div><div class="kpi-value" id="k-resolvidos">—</div><div class="kpi-sub">concluídos</div></div>
+      <div class="kpi blue"><div class="kpi-label">Obras</div><div class="kpi-value" id="k-obras">—</div><div class="kpi-sub">com chamados</div></div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tab-bar">
+      <div class="tab active" onclick="switchTab('abertos',this)">Abertos</div>
+      <div class="tab" onclick="switchTab('todos',this)">Todos</div>
+      <div class="tab" onclick="switchTab('por-obra',this)">Por Obra</div>
+    </div>
+
+    <!-- Abertos -->
+    <div id="tab-abertos" class="tab-panel active">
+      <div class="filter-bar">
+        <input type="text" id="f-search" placeholder="Buscar descrição, solicitante…" style="min-width:200px;" oninput="renderAbertos()">
+        <select id="f-obra-ab" onchange="renderAbertos()"><option value="">Todas as obras</option></select>
+        <select id="f-tipo-ab" onchange="renderAbertos()">
+          <option value="">Todos os tipos</option>
+          <option value="hidraulico">Hidráulico</option>
+          <option value="eletrico">Elétrico</option>
+          <option value="estrutural">Estrutural</option>
+          <option value="acabamento">Acabamento</option>
+          <option value="infiltracao">Infiltração</option>
+          <option value="outro">Outro</option>
+        </select>
+        <select id="f-urgencia-ab" onchange="renderAbertos()">
+          <option value="">Todas as urgências</option>
+          <option value="alta">Alta</option>
+          <option value="media">Média</option>
+          <option value="baixa">Baixa</option>
+        </select>
+        <button class="btn btn-outline btn-sm" style="margin-left:auto;" onclick="loadData()">↻</button>
+      </div>
+      <div id="chamados-abertos"></div>
+    </div>
+
+    <!-- Todos -->
+    <div id="tab-todos" class="tab-panel">
+      <div class="filter-bar">
+        <input type="text" id="f-search-todos" placeholder="Buscar…" style="min-width:180px;" oninput="renderTodos()">
+        <select id="f-status-todos" onchange="renderTodos()">
+          <option value="">Todos os status</option>
+          <option value="aberto">Aberto</option>
+          <option value="em_atendimento">Em Atendimento</option>
+          <option value="aguardando_material">Aguardando Material</option>
+          <option value="resolvido">Resolvido</option>
+          <option value="cancelado">Cancelado</option>
+        </select>
+      </div>
+      <div class="card" style="overflow:auto;">
+        <table>
+          <thead><tr>
+            <th>Nº</th><th>Obra</th><th>Descrição</th><th>Tipo</th><th>Urgência</th><th>Status</th><th>Prazo</th><th>Responsável</th><th></th>
+          </tr></thead>
+          <tbody id="tbody-todos"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Por Obra -->
+    <div id="tab-por-obra" class="tab-panel">
+      <div class="filter-bar">
+        <select id="f-obra-detail" onchange="renderObraDetail()"><option value="">Selecione uma obra…</option></select>
+      </div>
+      <div id="obra-detail"></div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<!-- Modal Chamado -->
+<div id="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modal-title">Novo Chamado de Garantia</h3>
+      <button onclick="closeModal()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#64748b;">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label>Obra*</label><select id="f-obra-m"></select></div>
+      <div class="field"><label>Descrição do Problema*</label><textarea id="f-desc" rows="3" placeholder="Descreva o problema relatado pelo cliente…"></textarea></div>
+      <div class="field-row">
+        <div class="field"><label>Tipo de Serviço</label>
+          <select id="f-tipo-m">
+            <option value="hidraulico">Hidráulico</option>
+            <option value="eletrico">Elétrico</option>
+            <option value="estrutural">Estrutural</option>
+            <option value="acabamento">Acabamento</option>
+            <option value="infiltracao">Infiltração</option>
+            <option value="outro">Outro</option>
+          </select>
+        </div>
+        <div class="field"><label>Urgência</label>
+          <select id="f-urgencia-m">
+            <option value="baixa">Baixa</option>
+            <option value="media">Média</option>
+            <option value="alta">Alta</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Solicitante</label><input id="f-solicitante" type="text" placeholder="Nome do síndico / morador"></div>
+        <div class="field"><label>Contato</label><input id="f-contato" type="text" placeholder="Telefone ou e-mail"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Data Abertura</label><input id="f-data-ab" type="date"></div>
+        <div class="field"><label>Prazo p/ Resolução</label><input id="f-prazo" type="date"></div>
+      </div>
+      <div class="field"><label>Responsável Interno</label><input id="f-resp" type="text" placeholder="Técnico ou engenheiro responsável"></div>
+      <div class="field"><label>Status</label>
+        <select id="f-status-m">
+          <option value="aberto">Aberto</option>
+          <option value="em_atendimento">Em Atendimento</option>
+          <option value="aguardando_material">Aguardando Material</option>
+          <option value="resolvido">Resolvido</option>
+          <option value="cancelado">Cancelado</option>
+        </select>
+      </div>
+      <div class="field"><label>Observações / Histórico</label><textarea id="f-obs" rows="3" placeholder="Andamento, materiais utilizados, visitas realizadas…"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger btn-sm" id="btn-del" style="margin-right:auto;display:none;" onclick="deleteChamado()">Excluir</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-og" onclick="saveChamado()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-area"></div>
+
+<script>
+const SB_URL='https://jmjbdundgbbefvhvyffb.supabase.co';
+const SB_KEY='sb_publishable_CeLpQY1DjpWfv8U2lSMmew_Uqq6OchZ';
+const sb=supabase.createClient(SB_URL,SB_KEY);
+
+let _chamados=[];
+let _obras=[];
+let _editId=null;
+let _counter=1;
+
+// ── AUTH ──────────────────────────────────────────────────────────
+async function boot(){
+  const logo=await getLogoUrl();
+  document.getElementById('li-logo').src=logo;
+  document.getElementById('sb-logo').src=logo;
+  const{data:{session}}=await sb.auth.getSession();
+  if(session) await enterApp(session.user);
+}
+
+async function getLogoUrl(){
+  try{const{data}=sb.storage.from('logos').getPublicUrl('obrasul-logo.png');return data.publicUrl;}catch(e){return '';}
+}
+
+async function doLogin(){
+  const email=document.getElementById('li-email').value.trim();
+  const pw=document.getElementById('li-pw').value;
+  document.getElementById('li-err').textContent='';
+  const{data,error}=await sb.auth.signInWithPassword({email,password:pw});
+  if(error){document.getElementById('li-err').textContent=error.message;return;}
+  await enterApp(data.user);
+}
+
+async function enterApp(user){
+  document.getElementById('sb-user-email').textContent=user.email;
+  const{data:p}=await sb.from('obs_perfis').select('nome_completo').eq('id',user.id).single();
+  document.getElementById('sb-user-name').textContent=p?.nome_completo||user.email;
+  document.getElementById('login-overlay').style.display='none';
+  document.getElementById('app').style.display='block';
+  await loadData();
+}
+
+async function doLogout(){await sb.auth.signOut();location.reload();}
+
+function toggleSidebar(){
+  document.getElementById('sidebar').classList.toggle('collapsed');
+  document.getElementById('main').classList.toggle('expanded');
+}
+
+function switchTab(id,el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tab-'+id).classList.add('active');
+  if(id==='todos') renderTodos();
+  if(id==='por-obra') renderObraDetail();
+}
+
+// ── DATA ──────────────────────────────────────────────────────────
+async function loadData(){
+  const[{data:chamados},{data:obras}]=await Promise.all([
+    sb.from('obs_garantias').select('*, obs_projects(nome)').order('created_at',{ascending:false}),
+    sb.from('obs_projects').select('id,nome').order('nome')
+  ]);
+  _chamados=chamados||[];
+  _obras=obras||[];
+  populateObraSelects();
+  updateKPIs();
+  checkAlerts();
+  renderAbertos();
+}
+
+function populateObraSelects(){
+  const opts='<option value="">Todas as obras</option>'+_obras.map(o=>`<option value="${o.id}">${o.nome}</option>`).join('');
+  ['f-obra-ab','f-obra-detail'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.innerHTML=id==='f-obra-detail'?'<option value="">Selecione uma obra…</option>'+_obras.map(o=>`<option value="${o.id}">${o.nome}</option>`).join(''):opts;
+  });
+  document.getElementById('f-obra-m').innerHTML='<option value="">Selecione a obra…</option>'+_obras.map(o=>`<option value="${o.id}">${o.nome}</option>`).join('');
+}
+
+function updateKPIs(){
+  const today=new Date().toISOString().split('T')[0];
+  const abertos=_chamados.filter(c=>!['resolvido','cancelado'].includes(c.status));
+  const vencidos=abertos.filter(c=>c.prazo&&c.prazo<today);
+  document.getElementById('k-total').textContent=_chamados.length;
+  document.getElementById('k-abertos').textContent=abertos.length;
+  document.getElementById('k-vencidos').textContent=vencidos.length;
+  document.getElementById('k-resolvidos').textContent=_chamados.filter(c=>c.status==='resolvido').length;
+  const obrasUnicas=new Set(_chamados.map(c=>c.project_id));
+  document.getElementById('k-obras').textContent=obrasUnicas.size;
+}
+
+function checkAlerts(){
+  const today=new Date().toISOString().split('T')[0];
+  const em7Dias=new Date(Date.now()+7*24*3600*1000).toISOString().split('T')[0];
+  const urgentes=_chamados.filter(c=>!['resolvido','cancelado'].includes(c.status)&&c.prazo&&c.prazo<=em7Dias);
+  const area=document.getElementById('alert-area');
+  if(!urgentes.length){area.innerHTML='';return;}
+  const vencidos=urgentes.filter(c=>c.prazo<today).length;
+  const proximos=urgentes.filter(c=>c.prazo>=today).length;
+  area.innerHTML=`<div class="alert-banner">⚠️ ${vencidos?`<strong>${vencidos} chamado(s) vencido(s)</strong>. `:''} ${proximos?`${proximos} chamado(s) vencendo em 7 dias.`:''}</div>`;
+}
+
+function renderAbertos(){
+  const search=document.getElementById('f-search').value.toLowerCase();
+  const obra=document.getElementById('f-obra-ab').value;
+  const tipo=document.getElementById('f-tipo-ab').value;
+  const urgencia=document.getElementById('f-urgencia-ab').value;
+  let list=_chamados.filter(c=>!['resolvido','cancelado'].includes(c.status));
+  if(search) list=list.filter(c=>(c.descricao||'').toLowerCase().includes(search)||(c.solicitante||'').toLowerCase().includes(search));
+  if(obra) list=list.filter(c=>c.project_id===obra);
+  if(tipo) list=list.filter(c=>c.tipo===tipo);
+  if(urgencia) list=list.filter(c=>c.urgencia===urgencia);
+  const container=document.getElementById('chamados-abertos');
+  if(!list.length){container.innerHTML='<div style="padding:2rem;text-align:center;color:#94a3b8;font-size:.85rem;">Nenhum chamado aberto.</div>';return;}
+  container.innerHTML=list.map(c=>chamadoCard(c)).join('');
+}
+
+function renderTodos(){
+  const search=document.getElementById('f-search-todos').value.toLowerCase();
+  const status=document.getElementById('f-status-todos').value;
+  let list=_chamados;
+  if(search) list=list.filter(c=>(c.descricao||'').toLowerCase().includes(search)||(c.obs_projects?.nome||'').toLowerCase().includes(search));
+  if(status) list=list.filter(c=>c.status===status);
+  const tbody=document.getElementById('tbody-todos');
+  if(!list.length){tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:2rem;">Nenhum chamado encontrado.</td></tr>';return;}
+  tbody.innerHTML=list.map((c,i)=>`<tr>
+    <td style="font-weight:700;color:#0B1D33;">#${String(i+1).padStart(3,'0')}</td>
+    <td>${c.obs_projects?.nome||'—'}</td>
+    <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.descricao||'—'}</td>
+    <td>${badgeTipo(c.tipo)}</td>
+    <td>${badgeUrgencia(c.urgencia)}</td>
+    <td>${badgeStatus(c.status)}</td>
+    <td>${prazoCell(c.prazo)}</td>
+    <td style="font-size:.78rem;">${c.responsavel||'—'}</td>
+    <td><button class="btn btn-outline btn-sm" onclick="editChamado('${c.id}')">✏️</button></td>
+  </tr>`).join('');
+}
+
+function renderObraDetail(){
+  const projectId=document.getElementById('f-obra-detail').value;
+  const container=document.getElementById('obra-detail');
+  if(!projectId){container.innerHTML='<div style="padding:2rem;text-align:center;color:#94a3b8;font-size:.85rem;">Selecione uma obra para ver os chamados.</div>';return;}
+  const list=_chamados.filter(c=>c.project_id===projectId);
+  if(!list.length){container.innerHTML='<div style="padding:2rem;text-align:center;color:#94a3b8;font-size:.85rem;">Nenhum chamado nesta obra.</div>';return;}
+  const abertos=list.filter(c=>!['resolvido','cancelado'].includes(c.status)).length;
+  container.innerHTML=`
+    <div style="display:flex;gap:.75rem;margin-bottom:1rem;flex-wrap:wrap;">
+      <div class="kpi" style="flex:1;min-width:120px;"><div class="kpi-label">Total</div><div class="kpi-value">${list.length}</div></div>
+      <div class="kpi yellow" style="flex:1;min-width:120px;"><div class="kpi-label">Abertos</div><div class="kpi-value">${abertos}</div></div>
+      <div class="kpi green" style="flex:1;min-width:120px;"><div class="kpi-label">Resolvidos</div><div class="kpi-value">${list.filter(c=>c.status==='resolvido').length}</div></div>
+    </div>
+    ${list.map(c=>chamadoCard(c)).join('')}
+  `;
+}
+
+function chamadoCard(c){
+  const today=new Date().toISOString().split('T')[0];
+  const vencido=c.prazo&&c.prazo<today&&!['resolvido','cancelado'].includes(c.status);
+  const urgente=c.urgencia==='alta';
+  const extraClass=vencido?'vencido':urgente?'urgente':'';
+  const obraNome=c.obs_projects?.nome||'—';
+  let prazoPct=100;
+  if(c.data_abertura&&c.prazo){
+    const total=new Date(c.prazo)-new Date(c.data_abertura);
+    const passou=new Date()-new Date(c.data_abertura);
+    prazoPct=Math.min(100,Math.max(0,Math.round(passou/total*100)));
+  }
+  const prazoColor=vencido?'#ef4444':prazoPct>75?'#f59e0b':'#22c55e';
+  return `<div class="chamado-card ${extraClass}" onclick="editChamado('${c.id}')">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem;margin-bottom:.4rem;">
+      <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;">
+        ${badgeStatus(c.status)}${badgeUrgencia(c.urgencia)}${badgeTipo(c.tipo)}
+        ${vencido?'<span class="badge red">VENCIDO</span>':''}
+      </div>
+      <span style="font-size:.72rem;color:#94a3b8;">${c.data_abertura?fmtDate(c.data_abertura):''}</span>
+    </div>
+    <div style="font-weight:600;font-size:.88rem;color:#0B1D33;margin-bottom:.25rem;">${c.descricao||'—'}</div>
+    <div style="font-size:.75rem;color:#64748b;display:flex;gap:.75rem;flex-wrap:wrap;">
+      <span>🏗️ ${obraNome}</span>
+      ${c.solicitante?`<span>👤 ${c.solicitante}</span>`:''}
+      ${c.responsavel?`<span>🔧 ${c.responsavel}</span>`:''}
+      ${c.prazo?`<span>📅 Prazo: ${fmtDate(c.prazo)}</span>`:''}
+    </div>
+    ${c.prazo?`<div class="prazo-bar" style="margin-top:.5rem;"><div class="prazo-fill" style="width:${prazoPct}%;background:${prazoColor};"></div></div>`:''}
+  </div>`;
+}
+
+// ── MODAL ──────────────────────────────────────────────────────────
+function openModal(){
+  _editId=null;
+  document.getElementById('modal-title').textContent='Novo Chamado de Garantia';
+  document.getElementById('btn-del').style.display='none';
+  clearForm();
+  document.getElementById('f-data-ab').value=new Date().toISOString().split('T')[0];
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function editChamado(id){
+  const c=_chamados.find(x=>x.id===id);
+  if(!c)return;
+  _editId=id;
+  document.getElementById('modal-title').textContent='Editar Chamado';
+  document.getElementById('btn-del').style.display='block';
+  document.getElementById('f-obra-m').value=c.project_id||'';
+  document.getElementById('f-desc').value=c.descricao||'';
+  document.getElementById('f-tipo-m').value=c.tipo||'outro';
+  document.getElementById('f-urgencia-m').value=c.urgencia||'media';
+  document.getElementById('f-solicitante').value=c.solicitante||'';
+  document.getElementById('f-contato').value=c.contato||'';
+  document.getElementById('f-data-ab').value=c.data_abertura||'';
+  document.getElementById('f-prazo').value=c.prazo||'';
+  document.getElementById('f-resp').value=c.responsavel||'';
+  document.getElementById('f-status-m').value=c.status||'aberto';
+  document.getElementById('f-obs').value=c.observacoes||'';
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function closeModal(){document.getElementById('modal-overlay').classList.remove('open');}
+
+function clearForm(){
+  ['f-desc','f-solicitante','f-contato','f-data-ab','f-prazo','f-resp','f-obs'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-tipo-m').value='outro';
+  document.getElementById('f-urgencia-m').value='media';
+  document.getElementById('f-status-m').value='aberto';
+  document.getElementById('f-obra-m').value='';
+}
+
+async function saveChamado(){
+  const projectId=document.getElementById('f-obra-m').value;
+  const desc=document.getElementById('f-desc').value.trim();
+  if(!projectId){toast('Selecione a obra','w');return;}
+  if(!desc){toast('Descrição obrigatória','w');return;}
+  const payload={
+    project_id:projectId,
+    descricao:desc,
+    tipo:document.getElementById('f-tipo-m').value,
+    urgencia:document.getElementById('f-urgencia-m').value,
+    solicitante:document.getElementById('f-solicitante').value.trim(),
+    contato:document.getElementById('f-contato').value.trim(),
+    data_abertura:document.getElementById('f-data-ab').value||null,
+    prazo:document.getElementById('f-prazo').value||null,
+    responsavel:document.getElementById('f-resp').value.trim(),
+    status:document.getElementById('f-status-m').value,
+    observacoes:document.getElementById('f-obs').value.trim()
+  };
+  let error;
+  if(_editId){
+    ({error}=await sb.from('obs_garantias').update(payload).eq('id',_editId));
+  } else {
+    ({error}=await sb.from('obs_garantias').insert(payload));
+  }
+  if(error){toast(error.message,'e');return;}
+  toast(_editId?'Chamado atualizado':'Chamado registrado','s');
+  closeModal();
+  await loadData();
+}
+
+async function deleteChamado(){
+  if(!confirm('Excluir este chamado?'))return;
+  const{error}=await sb.from('obs_garantias').delete().eq('id',_editId);
+  if(error){toast(error.message,'e');return;}
+  toast('Chamado excluído','s');
+  closeModal();
+  await loadData();
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────
+function badgeStatus(s){
+  const map={aberto:'yellow',em_atendimento:'blue',aguardando_material:'orange',resolvido:'green',cancelado:'gray'};
+  const label={aberto:'Aberto',em_atendimento:'Em Atendimento',aguardando_material:'Aguard. Material',resolvido:'Resolvido',cancelado:'Cancelado'};
+  return `<span class="badge ${map[s]||'gray'}">${label[s]||s}</span>`;
+}
+
+function badgeUrgencia(u){
+  const map={alta:'red',media:'yellow',baixa:'green'};
+  const label={alta:'Alta',media:'Média',baixa:'Baixa'};
+  return `<span class="badge ${map[u]||'gray'}">${label[u]||u||'—'}</span>`;
+}
+
+function badgeTipo(t){
+  const label={hidraulico:'Hidráulico',eletrico:'Elétrico',estrutural:'Estrutural',acabamento:'Acabamento',infiltracao:'Infiltração',outro:'Outro'};
+  return `<span class="badge gray">${label[t]||t||'—'}</span>`;
+}
+
+function prazoCell(prazo){
+  if(!prazo)return '—';
+  const today=new Date().toISOString().split('T')[0];
+  const color=prazo<today?'#dc2626':prazo===today?'#92400e':'#374151';
+  return `<span style="color:${color};font-weight:${prazo<=today?'700':'400'};">${fmtDate(prazo)}</span>`;
+}
+
+function fmtDate(d){if(!d)return '—';const[y,m,day]=d.split('-');return `${day}/${m}/${y}`;}
+
+function toast(msg,type=''){
+  const el=document.createElement('div');
+  el.className='toast'+(type?' '+type:'');
+  el.textContent=msg;
+  document.getElementById('toast-area').appendChild(el);
+  setTimeout(()=>el.remove(),3500);
+}
+
+boot();
+</script>
+</body>
+</html>

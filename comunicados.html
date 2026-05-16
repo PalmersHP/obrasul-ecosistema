@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Comunicados — Obrasul</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+:root{--navy:#0B1D33;--orange:#E87722;--sidebar:220px;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:"Segoe UI",system-ui,sans-serif;background:#f1f5f9;color:#1e293b;}
+#login-overlay{position:fixed;inset:0;z-index:300;background:#0B1D33;display:flex;align-items:center;justify-content:center;}
+.login-card{background:#fff;border-radius:1rem;padding:2.5rem;width:100%;max-width:400px;box-shadow:0 20px 60px #0008;}
+.inp{width:100%;padding:.6rem .85rem;border:1px solid #cbd5e1;border-radius:.5rem;font-size:.9rem;outline:none;}
+.inp:focus{border-color:#E87722;box-shadow:0 0 0 3px #E8772222;}
+.btn-primary{width:100%;background:#E87722;color:#fff;border:none;padding:.7rem;border-radius:.5rem;font-weight:700;cursor:pointer;margin-top:1rem;}
+.btn-primary:hover{background:#d06918;}
+.sidebar{position:fixed;top:0;left:0;bottom:0;width:var(--sidebar);background:#0B1D33;display:flex;flex-direction:column;z-index:100;overflow-y:auto;transition:.25s;}
+.sidebar.collapsed{width:60px;}
+.sidebar-logo{padding:1rem;border-bottom:1px solid #1e3a5f;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.sidebar-logo img{width:140px;max-width:100%;object-fit:contain;transition:.25s;}
+.sidebar.collapsed .sidebar-logo img{width:32px;}
+.sidebar.collapsed .nav-label,.sidebar.collapsed .nav-item span.lbl,.sidebar.collapsed .sidebar-footer-text{display:none;}
+.sidebar.collapsed .nav-item{justify-content:center;padding:.55rem 0;}
+.nav-section{padding:.5rem 0;flex-shrink:0;}
+.nav-label{font-size:.6rem;font-weight:800;letter-spacing:.12em;color:#475569;padding:.75rem 1rem .25rem;text-transform:uppercase;}
+.nav-item{display:flex;align-items:center;gap:.6rem;padding:.55rem 1rem;font-size:.82rem;color:#94a3b8;cursor:pointer;transition:.15s;border-left:3px solid transparent;text-decoration:none;}
+.nav-item:hover{color:#fff;background:#1e3a5f;}
+.nav-item.active{color:#E87722;border-left-color:#E87722;background:#1e3a5f22;font-weight:600;}
+.nav-item .ic{font-size:1rem;width:1.2rem;text-align:center;flex-shrink:0;}
+.sidebar-footer{margin-top:auto;border-top:1px solid #1e3a5f;padding:.75rem 1rem;flex-shrink:0;}
+.user-info{font-size:.75rem;color:#94a3b8;line-height:1.5;}
+.user-info b{color:#fff;display:block;}
+.btn-logout{width:100%;margin-top:.5rem;background:#1e3a5f;color:#94a3b8;border:none;padding:.4rem;border-radius:.4rem;font-size:.75rem;cursor:pointer;}
+.btn-logout:hover{background:#ef4444;color:#fff;}
+#app{display:none;}
+.main{margin-left:var(--sidebar);min-height:100vh;display:flex;flex-direction:column;transition:.25s;}
+.main.expanded{margin-left:60px;}
+.top-bar{background:#fff;border-bottom:1px solid #e2e8f0;padding:.6rem 1.5rem;display:flex;align-items:center;gap:.75rem;position:sticky;top:0;z-index:50;}
+.top-bar h2{font-size:1rem;font-weight:700;color:#0B1D33;}
+.page-wrap{padding:1.5rem;flex:1;}
+.card{background:#fff;border-radius:.75rem;box-shadow:0 1px 4px #0001;}
+.btn{padding:.4rem .9rem;border-radius:.45rem;font-size:.8rem;font-weight:600;cursor:pointer;border:none;transition:.15s;}
+.btn-og{background:#E87722;color:#fff;}.btn-og:hover{background:#d06918;}
+.btn-outline{background:#fff;color:#374151;border:1px solid #e2e8f0;}.btn-outline:hover{background:#f8fafc;}
+.btn-sm{padding:.3rem .65rem;font-size:.75rem;}
+.btn-danger{background:#fef2f2;color:#dc2626;border:1px solid #fecaca;}.btn-danger:hover{background:#dc2626;color:#fff;}
+.badge{display:inline-block;padding:.15rem .55rem;border-radius:9999px;font-size:.68rem;font-weight:700;}
+.badge.orange{background:#fff7ed;color:#c2410c;}
+.badge.blue{background:#eff6ff;color:#1d4ed8;}
+.badge.green{background:#f0fdf4;color:#166534;}
+.badge.red{background:#fef2f2;color:#dc2626;}
+.badge.gray{background:#f1f5f9;color:#475569;}
+.badge.yellow{background:#fefce8;color:#854d0e;}
+.badge.purple{background:#faf5ff;color:#7c3aed;}
+.badge.teal{background:#f0fdfa;color:#0f766e;}
+#modal-overlay{position:fixed;inset:0;background:#0006;z-index:200;display:none;align-items:center;justify-content:center;padding:1rem;}
+#modal-overlay.open{display:flex;}
+.modal{background:#fff;border-radius:1rem;width:100%;max-width:560px;max-height:92vh;overflow-y:auto;box-shadow:0 20px 60px #0004;}
+.modal-header{padding:1.1rem 1.4rem;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:1;}
+.modal-header h3{font-size:1rem;font-weight:700;color:#0B1D33;}
+.modal-body{padding:1.2rem 1.4rem;display:flex;flex-direction:column;gap:.85rem;}
+.modal-footer{padding:.9rem 1.4rem;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:.5rem;}
+.field label{display:block;font-size:.78rem;font-weight:600;color:#374151;margin-bottom:.3rem;}
+.field input,.field select,.field textarea{width:100%;padding:.5rem .75rem;border:1px solid #cbd5e1;border-radius:.45rem;font-size:.85rem;outline:none;transition:.15s;}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:#E87722;box-shadow:0 0 0 3px #E8772222;}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;}
+#toast-area{position:fixed;bottom:1.5rem;right:1.5rem;z-index:999;display:flex;flex-direction:column;gap:.5rem;}
+.toast{background:#1e293b;color:#fff;padding:.65rem 1rem;border-radius:.5rem;font-size:.82rem;font-weight:500;box-shadow:0 4px 16px #0004;animation:fadeUp .25s ease;max-width:320px;}
+.toast.s{background:#166534;}.toast.e{background:#dc2626;}.toast.w{background:#92400e;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.tab-bar{display:flex;gap:0;border-bottom:2px solid #e2e8f0;margin-bottom:1.25rem;}
+.tab{padding:.55rem 1.1rem;font-size:.82rem;font-weight:600;color:#64748b;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:.15s;white-space:nowrap;}
+.tab.active{color:#E87722;border-bottom-color:#E87722;}
+.tab-panel{display:none;}.tab-panel.active{display:block;}
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.75rem;margin-bottom:1.5rem;}
+.kpi{background:#fff;border-radius:.75rem;padding:.9rem 1rem;border-left:4px solid #E87722;box-shadow:0 1px 4px #0001;}
+.kpi.green{border-left-color:#22c55e;}.kpi.red{border-left-color:#ef4444;}.kpi.blue{border-left-color:#3b82f6;}
+.kpi.yellow{border-left-color:#f59e0b;}.kpi.teal{border-left-color:#14b8a6;}.kpi.purple{border-left-color:#8b5cf6;}
+.kpi-label{font-size:.65rem;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+.kpi-value{font-size:1.15rem;font-weight:800;color:#0B1D33;margin:.25rem 0 .1rem;}
+.kpi-sub{font-size:.68rem;color:#94a3b8;}
+.filter-bar{background:#fff;border-radius:.75rem;box-shadow:0 1px 4px #0001;padding:.65rem 1rem;margin-bottom:1rem;display:flex;align-items:center;gap:.65rem;flex-wrap:wrap;}
+.filter-bar input,.filter-bar select{padding:.35rem .6rem;border:1px solid #e2e8f0;border-radius:.4rem;font-size:.78rem;outline:none;color:#374151;}
+.filter-bar input:focus,.filter-bar select:focus{border-color:#E87722;}
+.msg-card{background:#fff;border:1px solid #e2e8f0;border-radius:.65rem;padding:.9rem 1rem;margin-bottom:.5rem;transition:.15s;}
+.msg-card.nao-lido{border-left:3px solid #E87722;}
+.msg-card.urgente-card{border-left:3px solid #dc2626;}
+.msg-card-header{display:flex;justify-content:space-between;align-items:center;gap:.5rem;margin-bottom:.35rem;}
+.msg-card-body{font-size:.85rem;color:#374151;line-height:1.5;white-space:pre-wrap;}
+.msg-card-meta{font-size:.72rem;color:#94a3b8;margin-top:.4rem;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
+.msg-dot{width:.45rem;height:.45rem;border-radius:50%;background:#E87722;display:inline-block;flex-shrink:0;}
+.msg-dot.urgente{background:#dc2626;}
+.msg-dot.solicitacao{background:#3b82f6;}
+.msg-dot.resposta{background:#22c55e;}
+.convo-thread{border:1px solid #e2e8f0;border-radius:.65rem;overflow:hidden;margin-bottom:.75rem;}
+.convo-header{background:#f8fafc;padding:.65rem 1rem;display:flex;justify-content:space-between;align-items:center;cursor:pointer;border-bottom:1px solid #e2e8f0;}
+.convo-msgs{padding:.75rem 1rem;display:flex;flex-direction:column;gap:.5rem;}
+.bubble{max-width:80%;padding:.55rem .85rem;border-radius:.65rem;font-size:.83rem;line-height:1.5;}
+.bubble.obrasul{background:#0B1D33;color:#fff;align-self:flex-end;border-bottom-right-radius:.15rem;}
+.bubble.sindico{background:#f1f5f9;color:#1e293b;align-self:flex-start;border-bottom-left-radius:.15rem;}
+.bubble-meta{font-size:.65rem;margin-top:.25rem;opacity:.7;}
+</style>
+</head>
+<body>
+
+<div id="login-overlay">
+  <div class="login-card">
+    <div style="text-align:center;margin-bottom:1.5rem;">
+      <img id="li-logo" src="" alt="Obrasul" style="height:50px;object-fit:contain;margin:0 auto;">
+    </div>
+    <div class="field" style="margin-bottom:.75rem;">
+      <label>E-mail</label>
+      <input class="inp" type="email" id="li-email" placeholder="seu@email.com">
+    </div>
+    <div class="field" style="margin-bottom:.75rem;">
+      <label>Senha</label>
+      <input class="inp" type="password" id="li-pw" placeholder="••••••••">
+    </div>
+    <div id="li-err" style="color:#dc2626;font-size:.8rem;min-height:1.2rem;margin-top:.25rem;"></div>
+    <button class="btn-primary" onclick="doLogin()">Entrar</button>
+  </div>
+</div>
+
+<div id="app">
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <img id="sb-logo" src="" alt="Obrasul">
+  </div>
+  <div style="padding:.5rem .6rem;border-bottom:1px solid #1e3a5f;flex-shrink:0;">
+    <button onclick="toggleSidebar()" style="width:100%;background:#1e3a5f22;color:#94a3b8;border:none;border-radius:.4rem;padding:.35rem;font-size:.8rem;cursor:pointer;">☰</button>
+  </div>
+  <nav class="nav-section">
+    <div class="nav-label">Principal</div>
+    <a href="index.html" class="nav-item"><span class="ic">🏠</span><span class="lbl">Dashboard</span></a>
+    <a href="clientes.html" class="nav-item"><span class="ic">🏢</span><span class="lbl">Clientes</span></a>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-label">Operações</div>
+    <a href="orcamentos.html" class="nav-item"><span class="ic">📋</span><span class="lbl">Orçamentos</span></a>
+    <a href="obras.html" class="nav-item"><span class="ic">🏗️</span><span class="lbl">Obras</span></a>
+    <a href="financeiro.html" class="nav-item"><span class="ic">💰</span><span class="lbl">Financeiro</span></a>
+    <a href="contratos.html" class="nav-item"><span class="ic">📄</span><span class="lbl">Contratos</span></a>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-label">Recursos</div>
+    <a href="compras.html" class="nav-item"><span class="ic">🛒</span><span class="lbl">Compras</span></a>
+    <a href="estoque.html" class="nav-item"><span class="ic">📦</span><span class="lbl">Estoque</span></a>
+    <a href="equipe.html" class="nav-item"><span class="ic">👷</span><span class="lbl">Equipe</span></a>
+    <a href="qualidade.html" class="nav-item"><span class="ic">✅</span><span class="lbl">Qualidade</span></a>
+    <a href="garantias.html" class="nav-item"><span class="ic">🛡️</span><span class="lbl">Garantias</span></a>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-label">Comunicação</div>
+    <a href="comunicados.html" class="nav-item active"><span class="ic">📢</span><span class="lbl">Comunicados</span></a>
+    <a href="biblioteca.html" class="nav-item"><span class="ic">📚</span><span class="lbl">Biblioteca</span></a>
+    <a href="relatorios.html" class="nav-item"><span class="ic">📊</span><span class="lbl">Relatórios</span></a>
+    <a href="index.html#configuracoes" class="nav-item"><span class="ic">⚙️</span><span class="lbl">Configurações</span></a>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="user-info sidebar-footer-text">
+      <b id="sb-user-name">—</b>
+      <span id="sb-user-email">—</span>
+    </div>
+    <button class="btn-logout" onclick="doLogout()">Sair</button>
+  </div>
+</aside>
+
+<div class="main" id="main">
+  <div class="top-bar">
+    <span style="font-size:1.2rem;">📢</span>
+    <h2>Comunicados</h2>
+    <div style="margin-left:auto;display:flex;gap:.5rem;">
+      <button class="btn btn-og btn-sm" onclick="openCompose()">+ Novo Comunicado</button>
+    </div>
+  </div>
+  <div class="page-wrap">
+
+    <!-- KPIs -->
+    <div class="kpi-row">
+      <div class="kpi"><div class="kpi-label">Total</div><div class="kpi-value" id="k-total">—</div><div class="kpi-sub">comunicados</div></div>
+      <div class="kpi red"><div class="kpi-label">Não Lidos</div><div class="kpi-value" id="k-nao-lidos">—</div><div class="kpi-sub">aguardando leitura</div></div>
+      <div class="kpi yellow"><div class="kpi-label">Urgentes</div><div class="kpi-value" id="k-urgentes">—</div><div class="kpi-sub">este mês</div></div>
+      <div class="kpi blue"><div class="kpi-label">Solicitações</div><div class="kpi-value" id="k-solic">—</div><div class="kpi-sub">dos síndicos</div></div>
+      <div class="kpi teal"><div class="kpi-label">Obras com msg</div><div class="kpi-value" id="k-obras">—</div><div class="kpi-sub">ativas</div></div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tab-bar">
+      <div class="tab active" onclick="switchTab('inbox',this)">Caixa de Entrada</div>
+      <div class="tab" onclick="switchTab('enviados',this)">Enviados</div>
+      <div class="tab" onclick="switchTab('por-obra',this)">Por Obra</div>
+    </div>
+
+    <!-- Inbox -->
+    <div id="tab-inbox" class="tab-panel active">
+      <div class="filter-bar">
+        <input type="text" id="f-search" placeholder="Buscar mensagem, nome…" style="min-width:180px;" oninput="renderInbox()">
+        <select id="f-obra-inbox" onchange="renderInbox()"><option value="">Todas as obras</option></select>
+        <select id="f-tipo-inbox" onchange="renderInbox()">
+          <option value="">Todos os tipos</option>
+          <option value="informativo">Informativo</option>
+          <option value="urgente">Urgente</option>
+          <option value="solicitacao">Solicitação</option>
+          <option value="resposta">Resposta</option>
+        </select>
+        <label style="display:flex;align-items:center;gap:.3rem;font-size:.78rem;cursor:pointer;">
+          <input type="checkbox" id="f-nao-lido" onchange="renderInbox()"> Não lidos
+        </label>
+        <button class="btn btn-outline btn-sm" style="margin-left:auto;" onclick="loadData()">↻</button>
+      </div>
+      <div id="inbox-list"></div>
+    </div>
+
+    <!-- Enviados -->
+    <div id="tab-enviados" class="tab-panel">
+      <div class="filter-bar">
+        <input type="text" id="f-search-env" placeholder="Buscar mensagem…" style="min-width:180px;" oninput="renderEnviados()">
+        <select id="f-obra-env" onchange="renderEnviados()"><option value="">Todas as obras</option></select>
+      </div>
+      <div id="enviados-list"></div>
+    </div>
+
+    <!-- Por Obra -->
+    <div id="tab-por-obra" class="tab-panel">
+      <div class="filter-bar">
+        <select id="f-obra-thread" onchange="renderThread()"><option value="">Selecione uma obra…</option></select>
+      </div>
+      <div id="thread-container"></div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<!-- Modal Novo Comunicado -->
+<div id="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Novo Comunicado</h3>
+      <button onclick="closeModal()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#64748b;">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Obra*</label>
+        <select id="m-obra"></select>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Tipo*</label>
+          <select id="m-tipo">
+            <option value="informativo">Informativo</option>
+            <option value="urgente">Urgente</option>
+            <option value="resposta">Resposta</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Seu nome</label>
+          <input id="m-nome" type="text" placeholder="Nome do responsável">
+        </div>
+      </div>
+      <div class="field">
+        <label>Mensagem*</label>
+        <textarea id="m-msg" rows="5" placeholder="Escreva o comunicado para o síndico…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-og" onclick="enviarComunicado()">Enviar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-area"></div>
+
+<script>
+const SB_URL='https://jmjbdundgbbefvhvyffb.supabase.co';
+const SB_KEY='sb_publishable_CeLpQY1DjpWfv8U2lSMmew_Uqq6OchZ';
+const sb=supabase.createClient(SB_URL,SB_KEY);
+
+let _msgs=[];
+let _obras=[];
+let _userName='Obrasul';
+
+// ── AUTH ──────────────────────────────────────────────────────────
+async function boot(){
+  const logo=await getLogoUrl();
+  document.getElementById('li-logo').src=logo;
+  document.getElementById('sb-logo').src=logo;
+  const{data:{session}}=await sb.auth.getSession();
+  if(session) await enterApp(session.user);
+}
+
+async function getLogoUrl(){
+  try{const{data}=sb.storage.from('logos').getPublicUrl('obrasul-logo.png');return data.publicUrl;}catch(e){return '';}
+}
+
+async function doLogin(){
+  const email=document.getElementById('li-email').value.trim();
+  const pw=document.getElementById('li-pw').value;
+  document.getElementById('li-err').textContent='';
+  const{data,error}=await sb.auth.signInWithPassword({email,password:pw});
+  if(error){document.getElementById('li-err').textContent=error.message;return;}
+  await enterApp(data.user);
+}
+
+async function enterApp(user){
+  document.getElementById('sb-user-email').textContent=user.email;
+  const{data:p}=await sb.from('obs_perfis').select('nome_completo').eq('id',user.id).single();
+  _userName=p?.nome_completo||user.email;
+  document.getElementById('sb-user-name').textContent=_userName;
+  document.getElementById('login-overlay').style.display='none';
+  document.getElementById('app').style.display='block';
+  await loadData();
+}
+
+async function doLogout(){
+  await sb.auth.signOut();
+  location.reload();
+}
+
+function toggleSidebar(){
+  document.getElementById('sidebar').classList.toggle('collapsed');
+  document.getElementById('main').classList.toggle('expanded');
+}
+
+function switchTab(id,el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tab-'+id).classList.add('active');
+  if(id==='enviados') renderEnviados();
+  if(id==='por-obra') renderThread();
+}
+
+// ── DATA ──────────────────────────────────────────────────────────
+async function loadData(){
+  const[{data:msgs},{data:obras}]=await Promise.all([
+    sb.from('obs_comunicados').select('*, obs_projects(nome)').order('created_at',{ascending:false}).limit(500),
+    sb.from('obs_projects').select('id,nome').eq('status','em_andamento').order('nome')
+  ]);
+  _msgs=msgs||[];
+  _obras=obras||[];
+  populateObraSelects();
+  updateKPIs();
+  renderInbox();
+}
+
+function populateObraSelects(){
+  const opts='<option value="">Todas as obras</option>'+_obras.map(o=>`<option value="${o.id}">${o.nome}</option>`).join('');
+  document.getElementById('f-obra-inbox').innerHTML=opts;
+  document.getElementById('f-obra-env').innerHTML=opts;
+  const optsThread='<option value="">Selecione uma obra…</option>'+_obras.map(o=>`<option value="${o.id}">${o.nome}</option>`).join('');
+  document.getElementById('f-obra-thread').innerHTML=optsThread;
+  const mOpts='<option value="">Selecione a obra…</option>'+_obras.map(o=>`<option value="${o.id}">${o.nome}</option>`).join('');
+  document.getElementById('m-obra').innerHTML=mOpts;
+}
+
+function updateKPIs(){
+  const now=new Date();
+  const mesInicio=new Date(now.getFullYear(),now.getMonth(),1);
+  document.getElementById('k-total').textContent=_msgs.length;
+  document.getElementById('k-nao-lidos').textContent=_msgs.filter(m=>!m.lido).length;
+  document.getElementById('k-urgentes').textContent=_msgs.filter(m=>m.tipo==='urgente'&&new Date(m.created_at)>=mesInicio).length;
+  document.getElementById('k-solic').textContent=_msgs.filter(m=>m.remetente==='sindico'&&m.tipo==='solicitacao').length;
+  const obrasUnicas=new Set(_msgs.map(m=>m.project_id));
+  document.getElementById('k-obras').textContent=obrasUnicas.size;
+}
+
+function renderInbox(){
+  const search=document.getElementById('f-search').value.toLowerCase();
+  const obra=document.getElementById('f-obra-inbox').value;
+  const tipo=document.getElementById('f-tipo-inbox').value;
+  const somenteNaoLido=document.getElementById('f-nao-lido').checked;
+  let list=_msgs.filter(m=>m.remetente==='sindico');
+  if(search) list=list.filter(m=>(m.mensagem||'').toLowerCase().includes(search)||(m.remetente_nome||'').toLowerCase().includes(search));
+  if(obra) list=list.filter(m=>m.project_id===obra);
+  if(tipo) list=list.filter(m=>m.tipo===tipo);
+  if(somenteNaoLido) list=list.filter(m=>!m.lido);
+  renderMsgList(list,'inbox-list',true);
+}
+
+function renderEnviados(){
+  const search=document.getElementById('f-search-env').value.toLowerCase();
+  const obra=document.getElementById('f-obra-env').value;
+  let list=_msgs.filter(m=>m.remetente==='obrasul');
+  if(search) list=list.filter(m=>(m.mensagem||'').toLowerCase().includes(search));
+  if(obra) list=list.filter(m=>m.project_id===obra);
+  renderMsgList(list,'enviados-list',false);
+}
+
+function renderMsgList(list,containerId,showMarkRead){
+  const container=document.getElementById(containerId);
+  if(!list.length){container.innerHTML='<div style="padding:2rem;text-align:center;color:#94a3b8;font-size:.85rem;">Nenhuma mensagem encontrada.</div>';return;}
+  container.innerHTML=list.map(m=>{
+    const obraNome=m.obs_projects?.nome||'—';
+    const tipoClass={urgente:'urgente-card',solicitacao:'',resposta:'',informativo:''}[m.tipo]||'';
+    const lidoClass=m.lido?'':'nao-lido';
+    return `<div class="msg-card ${tipoClass} ${lidoClass}">
+      <div class="msg-card-header">
+        <div style="display:flex;align-items:center;gap:.5rem;">
+          <span class="msg-dot ${m.tipo}"></span>
+          <span style="font-weight:700;font-size:.85rem;color:#0B1D33;">${m.remetente_nome||m.remetente}</span>
+          ${badgeTipo(m.tipo)}
+          ${!m.lido?'<span class="badge red" style="font-size:.6rem;">NOVO</span>':''}
+        </div>
+        <div style="display:flex;gap:.3rem;">
+          ${showMarkRead&&!m.lido?`<button class="btn btn-green btn-sm" onclick="marcarLido('${m.id}')">✓ Lido</button>`:''}
+          <button class="btn btn-og btn-sm" onclick="responder('${m.project_id}','${(m.remetente_nome||m.remetente).replace(/'/g,"\\'")}')">Responder</button>
+        </div>
+      </div>
+      <div class="msg-card-body">${escHtml(m.mensagem)}</div>
+      <div class="msg-card-meta">
+        <span>🏗️ ${obraNome}</span>
+        <span>•</span>
+        <span>${fmtTs(m.created_at)}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderThread(){
+  const projectId=document.getElementById('f-obra-thread').value;
+  const container=document.getElementById('thread-container');
+  if(!projectId){container.innerHTML='<div style="padding:2rem;text-align:center;color:#94a3b8;font-size:.85rem;">Selecione uma obra para ver o histórico de mensagens.</div>';return;}
+  const msgs=_msgs.filter(m=>m.project_id===projectId).slice().reverse();
+  if(!msgs.length){container.innerHTML='<div style="padding:2rem;text-align:center;color:#94a3b8;font-size:.85rem;">Nenhuma mensagem nesta obra.</div>';return;}
+  container.innerHTML=`<div class="convo-thread">
+    <div class="convo-msgs">${msgs.map(m=>`
+      <div style="display:flex;flex-direction:column;align-items:${m.remetente==='obrasul'?'flex-end':'flex-start'};">
+        <div class="bubble ${m.remetente}">${escHtml(m.mensagem)}</div>
+        <div class="bubble-meta" style="font-size:.65rem;color:#94a3b8;${m.remetente==='obrasul'?'text-align:right;':'text-align:left;'}">
+          ${m.remetente_nome||m.remetente} · ${fmtTs(m.created_at)} ${badgeTipo(m.tipo)}
+        </div>
+      </div>
+    `).join('')}</div>
+    <div style="border-top:1px solid #e2e8f0;padding:.75rem 1rem;display:flex;gap:.5rem;">
+      <textarea id="reply-msg" rows="2" placeholder="Escrever resposta…" style="flex:1;padding:.5rem .75rem;border:1px solid #e2e8f0;border-radius:.45rem;font-size:.83rem;resize:none;outline:none;"></textarea>
+      <button class="btn btn-og" onclick="sendReply('${projectId}')">Enviar</button>
+    </div>
+  </div>`;
+}
+
+// ── ACTIONS ───────────────────────────────────────────────────────
+async function marcarLido(id){
+  const{error}=await sb.from('obs_comunicados').update({lido:true}).eq('id',id);
+  if(error){toast(error.message,'e');return;}
+  const m=_msgs.find(x=>x.id===id);
+  if(m)m.lido=true;
+  updateKPIs();
+  renderInbox();
+}
+
+function responder(projectId,nome){
+  document.getElementById('m-obra').value=projectId;
+  document.getElementById('m-tipo').value='resposta';
+  document.getElementById('m-msg').value='';
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+async function sendReply(projectId){
+  const msg=document.getElementById('reply-msg').value.trim();
+  if(!msg){toast('Escreva uma mensagem','w');return;}
+  const{error}=await sb.from('obs_comunicados').insert({
+    project_id:projectId,
+    remetente:'obrasul',
+    remetente_nome:_userName,
+    mensagem:msg,
+    tipo:'resposta',
+    lido:false
+  });
+  if(error){toast(error.message,'e');return;}
+  toast('Mensagem enviada','s');
+  await loadData();
+  renderThread();
+}
+
+function openCompose(){
+  document.getElementById('m-msg').value='';
+  document.getElementById('m-nome').value=_userName;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function closeModal(){document.getElementById('modal-overlay').classList.remove('open');}
+
+async function enviarComunicado(){
+  const projectId=document.getElementById('m-obra').value;
+  const tipo=document.getElementById('m-tipo').value;
+  const nome=document.getElementById('m-nome').value.trim();
+  const msg=document.getElementById('m-msg').value.trim();
+  if(!projectId){toast('Selecione a obra','w');return;}
+  if(!msg){toast('Mensagem obrigatória','w');return;}
+  const{error}=await sb.from('obs_comunicados').insert({
+    project_id:projectId,
+    remetente:'obrasul',
+    remetente_nome:nome||_userName,
+    mensagem:msg,
+    tipo,
+    lido:false
+  });
+  if(error){toast(error.message,'e');return;}
+  toast('Comunicado enviado','s');
+  closeModal();
+  await loadData();
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────
+function badgeTipo(t){
+  const map={informativo:'gray',urgente:'red',solicitacao:'blue',resposta:'green'};
+  const label={informativo:'Informativo',urgente:'Urgente',solicitacao:'Solicitação',resposta:'Resposta'};
+  return `<span class="badge ${map[t]||'gray'}" style="font-size:.62rem;">${label[t]||t}</span>`;
+}
+
+function fmtTs(ts){
+  if(!ts)return '—';
+  const d=new Date(ts);
+  return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+}
+
+function escHtml(s){
+  if(!s)return '';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function toast(msg,type=''){
+  const el=document.createElement('div');
+  el.className='toast'+(type?' '+type:'');
+  el.textContent=msg;
+  document.getElementById('toast-area').appendChild(el);
+  setTimeout(()=>el.remove(),3500);
+}
+
+boot();
+</script>
+</body>
+</html>

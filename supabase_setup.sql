@@ -358,7 +358,57 @@ create policy "obs_comunicados_auth"    on public.obs_comunicados for all    usi
 create policy "obs_comunicados_anon_r"  on public.obs_comunicados for select using (true);
 create policy "obs_comunicados_anon_w"  on public.obs_comunicados for insert with check (remetente = 'sindico');
 
--- ── 20. AUDIT LOG ────────────────────────────────────────────
+-- ── 20. ESTOQUE ──────────────────────────────────────────────
+create table if not exists public.obs_stock (
+  id                uuid primary key default gen_random_uuid(),
+  nome              text not null,
+  codigo            text default '',
+  categoria         text default '',
+  local             text default '',
+  quantidade        numeric(12,3) default 0,
+  unidade           text default 'un',
+  quantidade_minima numeric(12,3) default 0,
+  valor_unitario    numeric(10,2) default 0,
+  fornecedor        text default '',
+  observacoes       text default '',
+  ativo             boolean default true,
+  created_at        timestamptz default now()
+);
+alter table public.obs_stock enable row level security;
+create policy "obs_stock_auth" on public.obs_stock for all using (auth.uid() is not null) with check (auth.uid() is not null);
+
+create table if not exists public.obs_stock_movimentos (
+  id           uuid primary key default gen_random_uuid(),
+  stock_id     uuid references public.obs_stock on delete cascade not null,
+  tipo         text not null check (tipo in ('entrada','saida','ajuste')),
+  quantidade   numeric(12,3) not null,
+  responsavel  text default '',
+  motivo       text default '',
+  created_at   timestamptz default now()
+);
+alter table public.obs_stock_movimentos enable row level security;
+create policy "obs_stock_mov_auth" on public.obs_stock_movimentos for all using (auth.uid() is not null) with check (auth.uid() is not null);
+
+-- ── 21. GARANTIAS ─────────────────────────────────────────────
+create table if not exists public.obs_garantias (
+  id            uuid primary key default gen_random_uuid(),
+  project_id    uuid references public.obs_projects on delete cascade not null,
+  descricao     text not null,
+  tipo          text default 'outro' check (tipo in ('hidraulico','eletrico','estrutural','acabamento','infiltracao','outro')),
+  urgencia      text default 'media' check (urgencia in ('baixa','media','alta')),
+  solicitante   text default '',
+  contato       text default '',
+  data_abertura date,
+  prazo         date,
+  responsavel   text default '',
+  status        text default 'aberto' check (status in ('aberto','em_atendimento','aguardando_material','resolvido','cancelado')),
+  observacoes   text default '',
+  created_at    timestamptz default now()
+);
+alter table public.obs_garantias enable row level security;
+create policy "obs_garantias_auth" on public.obs_garantias for all using (auth.uid() is not null) with check (auth.uid() is not null);
+
+-- ── 22. AUDIT LOG ────────────────────────────────────────────
 create table if not exists public.obs_audit_logs (
   id            uuid primary key default gen_random_uuid(),
   created_at    timestamptz default now(),
@@ -376,7 +426,7 @@ create policy "obs_audit_read"   on public.obs_audit_logs for select using (auth
 create policy "obs_audit_insert" on public.obs_audit_logs for insert with check (auth.uid() is not null);
 -- Sem UPDATE nem DELETE no audit log
 
--- ── 21. TRIGGER updated_at ───────────────────────────────────
+-- ── 23. TRIGGER updated_at ───────────────────────────────────
 create or replace function public.obs_handle_updated_at()
 returns trigger language plpgsql as $$
 begin new.updated_at = now(); return new; end;
