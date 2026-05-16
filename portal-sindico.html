@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Portal do Síndico — Obrasul</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:"Segoe UI",system-ui,sans-serif;background:#f1f5f9;color:#1e293b;}
+:root{--navy:#0B1D33;--orange:#E87722;}
+.header{background:#0B1D33;padding:1rem 1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;}
+.header-logo{height:44px;object-fit:contain;}
+.header-title{color:#fff;font-size:1rem;font-weight:700;flex:1;text-align:center;}
+.header-badge{font-size:.72rem;background:#E87722;color:#fff;border-radius:9999px;padding:.25rem .7rem;font-weight:700;}
+.container{max-width:960px;margin:0 auto;padding:1.5rem;}
+.card{background:#fff;border-radius:.75rem;box-shadow:0 1px 4px #0001;padding:1.25rem 1.5rem;margin-bottom:1.25rem;}
+.card-title{font-size:.78rem;font-weight:700;color:#0B1D33;text-transform:uppercase;letter-spacing:.06em;margin-bottom:1rem;display:flex;align-items:center;gap:.5rem;}
+.badge{display:inline-block;padding:.2rem .65rem;border-radius:9999px;font-size:.7rem;font-weight:700;}
+.badge.orange{background:#fff7ed;color:#c2410c;}
+.badge.blue{background:#eff6ff;color:#1d4ed8;}
+.badge.green{background:#f0fdf4;color:#166534;}
+.badge.red{background:#fef2f2;color:#dc2626;}
+.badge.gray{background:#f1f5f9;color:#475569;}
+.badge.yellow{background:#fefce8;color:#854d0e;}
+.badge.teal{background:#f0fdfa;color:#0f766e;}
+.badge.navy{background:#0B1D33;color:#fff;}
+.progress-big{background:#e2e8f0;border-radius:9999px;height:1.2rem;overflow:hidden;position:relative;}
+.progress-big-fill{background:linear-gradient(90deg,#E87722,#f5a623);height:100%;border-radius:9999px;transition:.5s;}
+.progress-big-label{position:absolute;right:.75rem;top:50%;transform:translateY(-50%);font-size:.78rem;font-weight:700;color:#fff;text-shadow:0 1px 2px #0004;}
+.info-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.5rem .75rem;}
+.info-item{padding:.5rem 0;}
+.info-item .lbl{font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em;}
+.info-item .val{font-size:.9rem;font-weight:600;color:#1e293b;margin-top:.15rem;}
+.stage-row{display:flex;align-items:center;gap:.75rem;padding:.55rem 0;border-bottom:1px solid #f1f5f9;font-size:.82rem;}
+.stage-row:last-child{border-bottom:none;}
+.stage-prog{flex:1;background:#e2e8f0;border-radius:9999px;height:.45rem;overflow:hidden;}
+.stage-fill{height:100%;border-radius:9999px;background:#E87722;}
+.stage-name{min-width:180px;font-weight:500;color:#374151;}
+.stage-pct{min-width:36px;text-align:right;font-weight:700;color:#E87722;font-size:.78rem;}
+.stage-status{min-width:80px;}
+.update-card{border:1px solid #e2e8f0;border-radius:.6rem;padding:.85rem 1rem;margin-bottom:.6rem;}
+.update-card .date{font-size:.72rem;font-weight:700;color:#0B1D33;}
+.update-card .clima{font-size:.7rem;color:#64748b;margin-bottom:.35rem;}
+.update-card .body{font-size:.8rem;color:#374151;line-height:1.55;}
+.foto-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:.75rem;}
+.foto-card{border-radius:.5rem;overflow:hidden;border:1px solid #e2e8f0;background:#f8fafc;}
+.foto-img{width:100%;height:120px;object-fit:cover;display:block;}
+.foto-img-placeholder{width:100%;height:120px;background:linear-gradient(135deg,#e2e8f0,#f1f5f9);display:flex;align-items:center;justify-content:center;font-size:2rem;color:#94a3b8;}
+.foto-label{padding:.4rem .6rem;font-size:.7rem;color:#64748b;}
+.doc-row{display:flex;align-items:center;gap:.75rem;padding:.6rem 0;border-bottom:1px solid #f1f5f9;font-size:.82rem;}
+.doc-row:last-child{border-bottom:none;}
+.doc-icon{font-size:1.2rem;flex-shrink:0;}
+.doc-name{flex:1;font-weight:500;}
+.com-card{padding:.75rem 0;border-bottom:1px solid #f1f5f9;}
+.com-card:last-child{border-bottom:none;}
+.com-header{display:flex;align-items:center;gap:.5rem;margin-bottom:.3rem;}
+.com-remetente{font-size:.72rem;font-weight:700;color:#0B1D33;}
+.com-date{font-size:.68rem;color:#94a3b8;}
+.com-msg{font-size:.82rem;color:#374151;line-height:1.5;}
+.com-urgente{background:#fef2f2;border-left:3px solid #dc2626;padding:.5rem .75rem;border-radius:0 .4rem .4rem 0;}
+.reply-form{margin-top:1rem;background:#f8fafc;border-radius:.6rem;padding:.85rem;}
+.reply-form textarea{width:100%;padding:.5rem .75rem;border:1px solid #e2e8f0;border-radius:.45rem;font-size:.85rem;outline:none;resize:vertical;min-height:80px;}
+.reply-form textarea:focus{border-color:#E87722;box-shadow:0 0 0 3px #E8772222;}
+.btn{padding:.45rem 1rem;border-radius:.45rem;font-size:.82rem;font-weight:600;cursor:pointer;border:none;transition:.15s;}
+.btn-og{background:#E87722;color:#fff;}.btn-og:hover{background:#d06918;}
+.btn-outline{background:#fff;color:#374151;border:1px solid #e2e8f0;}.btn-outline:hover{background:#f1f5f9;}
+#error-screen{display:none;min-height:100vh;align-items:center;justify-content:center;background:#0B1D33;}
+.error-card{background:#fff;border-radius:1rem;padding:2.5rem;max-width:420px;text-align:center;}
+#loading-screen{display:flex;min-height:100vh;align-items:center;justify-content:center;background:#0B1D33;flex-direction:column;gap:1rem;}
+.spinner{width:2.5rem;height:2.5rem;border:4px solid #1e3a5f;border-top-color:#E87722;border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+#portal{display:none;}
+.footer{text-align:center;padding:2rem 1rem;color:#94a3b8;font-size:.75rem;}
+.footer a{color:#E87722;text-decoration:none;}
+#toast-area{position:fixed;bottom:1.5rem;right:1.5rem;z-index:999;}
+.toast{background:#1e293b;color:#fff;padding:.65rem 1rem;border-radius:.5rem;font-size:.82rem;font-weight:500;box-shadow:0 4px 16px #0004;animation:fadeUp .25s;max-width:320px;margin-top:.4rem;}
+.toast.s{background:#166534;}.toast.e{background:#dc2626;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:600px){.info-grid{grid-template-columns:1fr 1fr;}.stage-name{min-width:120px;}}
+@media print{
+  .header,.reply-form,.btn,.print-hide{display:none !important;}
+  body{background:#fff;}
+  .card{box-shadow:none;border:1px solid #e2e8f0;margin-bottom:.75rem;}
+}
+</style>
+</head>
+<body>
+
+<div id="loading-screen">
+  <div class="spinner"></div>
+  <p style="color:#94a3b8;font-size:.82rem;">Carregando portal...</p>
+</div>
+
+<div id="error-screen">
+  <div class="error-card">
+    <div style="font-size:2.5rem;margin-bottom:1rem;">🔒</div>
+    <h2 style="color:#0B1D33;margin-bottom:.5rem;" id="err-title">Acesso não encontrado</h2>
+    <p style="color:#64748b;font-size:.85rem;margin-bottom:1.5rem;" id="err-msg">Este link é inválido ou expirou. Entre em contato com a Obrasul.</p>
+    <a href="https://wa.me/5511999999999" class="btn btn-og" style="text-decoration:none;display:inline-block;">📞 Contatar Obrasul</a>
+  </div>
+</div>
+
+<div id="portal">
+  <div class="header">
+    <img id="portal-logo" src="" alt="Obrasul" class="header-logo">
+    <div class="header-title" id="portal-title">Portal do Síndico</div>
+    <div class="header-badge" id="portal-badge">Ao vivo</div>
+    <button class="btn btn-outline print-hide" onclick="window.print()" style="font-size:.75rem;padding:.3rem .7rem;background:#1e3a5f;border:none;color:#94a3b8;">🖨️ Imprimir</button>
+  </div>
+
+  <div class="container">
+
+    <!-- STATUS CARD -->
+    <div class="card" id="status-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.75rem;margin-bottom:1.25rem;">
+        <div>
+          <div style="font-size:.68rem;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.25rem;">Obra em execução</div>
+          <h1 style="font-size:1.35rem;font-weight:800;color:#0B1D33;" id="obra-nome">—</h1>
+          <div style="font-size:.85rem;color:#64748b;margin-top:.2rem;" id="obra-cliente">—</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.4rem;">
+          <span class="badge" id="obra-status-badge">—</span>
+          <div style="font-size:.72rem;color:#64748b;">Última atualização: <span id="obra-ultima-at">—</span></div>
+        </div>
+      </div>
+      <div style="margin-bottom:1.25rem;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:.4rem;">
+          <span style="font-size:.72rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em;">Progresso físico</span>
+          <span style="font-size:.82rem;font-weight:700;color:#E87722;" id="obra-pct-label">0%</span>
+        </div>
+        <div class="progress-big">
+          <div class="progress-big-fill" id="obra-prog-fill" style="width:0%"></div>
+          <span class="progress-big-label" id="obra-prog-lbl">0%</span>
+        </div>
+      </div>
+      <div class="info-grid" id="obra-info-grid"></div>
+    </div>
+
+    <!-- CRONOGRAMA -->
+    <div class="card" id="cronograma-card">
+      <div class="card-title">📅 Cronograma das etapas</div>
+      <div id="stages-list">
+        <p style="color:#94a3b8;font-size:.78rem;">Nenhuma etapa registrada ainda.</p>
+      </div>
+    </div>
+
+    <!-- ATUALIZAÇÕES (RDOs publicados) -->
+    <div class="card" id="updates-card">
+      <div class="card-title">📝 Últimas atualizações</div>
+      <div id="updates-list">
+        <p style="color:#94a3b8;font-size:.78rem;">Nenhuma atualização registrada.</p>
+      </div>
+    </div>
+
+    <!-- COMUNICADOS (2 vias: Obrasul → síndico e síndico → Obrasul) -->
+    <div class="card" id="com-card">
+      <div class="card-title">💬 Comunicados
+        <span id="unread-badge" style="display:none;background:#ef4444;color:#fff;font-size:.65rem;padding:.1rem .45rem;border-radius:9999px;"></span>
+      </div>
+      <div id="com-list">
+        <p style="color:#94a3b8;font-size:.78rem;">Nenhum comunicado.</p>
+      </div>
+      <div class="reply-form print-hide" id="reply-form">
+        <div style="font-size:.78rem;font-weight:600;color:#0B1D33;margin-bottom:.5rem;">✍️ Enviar mensagem para a Obrasul</div>
+        <input id="reply-nome" placeholder="Seu nome (síndico/responsável)" style="width:100%;padding:.5rem .75rem;border:1px solid #e2e8f0;border-radius:.45rem;font-size:.85rem;outline:none;margin-bottom:.5rem;">
+        <textarea id="reply-msg" placeholder="Escreva sua mensagem..."></textarea>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:.5rem;flex-wrap:wrap;gap:.5rem;">
+          <select id="reply-tipo" style="padding:.4rem .6rem;border:1px solid #e2e8f0;border-radius:.4rem;font-size:.75rem;outline:none;">
+            <option value="informativo">Informativo</option>
+            <option value="solicitacao">Solicitação</option>
+            <option value="urgente">Urgente</option>
+          </select>
+          <button class="btn btn-og" onclick="sendReply()" style="font-size:.78rem;">Enviar mensagem</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- FOTOS -->
+    <div class="card" id="fotos-card" style="display:none;">
+      <div class="card-title">📷 Fotos da obra</div>
+      <div class="foto-grid" id="foto-grid"></div>
+    </div>
+
+    <!-- DOCUMENTOS -->
+    <div class="card" id="docs-card" style="display:none;">
+      <div class="card-title">📄 Documentos disponíveis</div>
+      <div id="docs-list"></div>
+    </div>
+
+    <!-- CONTATOS -->
+    <div class="card" id="contatos-card">
+      <div class="card-title">👷 Responsáveis pela obra</div>
+      <div id="contatos-list"></div>
+    </div>
+
+    <div class="footer">
+      Portal do Síndico — <a href="https://obrasul.com.br" target="_blank">Obrasul</a><br>
+      Acesso restrito. Não compartilhe este link com terceiros.
+    </div>
+  </div>
+</div>
+
+<div id="toast-area"></div>
+
+<script>
+const SB_URL='https://jmjbdundgbbefvhvyffb.supabase.co';
+const SB_KEY='sb_publishable_CeLpQY1DjpWfv8U2lSMmew_Uqq6OchZ';
+const sb=supabase.createClient(SB_URL,SB_KEY);
+const LOGO='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYwIiBoZWlnaHQ9IjUwIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxyZWN0IHdpZHRoPSIxNjAiIGhlaWdodD0iNTAiIGZpbGw9IiMwQjFEMzMiIHJ4PSI2Ii8+PHRleHQgeD0iODAiIHk9IjMzIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjAiIGZvbnQtd2VpZ2h0PSJib2xkIiBmaWxsPSIjRTg3NzIyIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5PQlJBU1VMPC90ZXh0Pjwvc3ZnPg==';
+
+const STATUS_OBRA={
+  aguardando_inicio:{label:'Aguardando início',cls:'gray'},
+  em_mobilizacao:{label:'Em mobilização',cls:'blue'},
+  em_andamento:{label:'Em andamento',cls:'orange'},
+  aguardando_material:{label:'Aguard. material',cls:'yellow'},
+  aguardando_condominio:{label:'Aguard. condomínio',cls:'yellow'},
+  paralisada:{label:'Paralisada',cls:'red'},
+  em_revisao_final:{label:'Em revisão final',cls:'navy'},
+  concluida:{label:'Concluída',cls:'green'},
+  entregue:{label:'Entregue',cls:'teal'},
+  em_garantia:{label:'Em garantia',cls:'teal'},
+  encerrada:{label:'Encerrada',cls:'gray'}
+};
+const STATUS_ETAPA={
+  nao_iniciada:{label:'Não iniciada',cls:'gray'},
+  em_andamento:{label:'Em andamento',cls:'orange'},
+  concluida:{label:'Concluída',cls:'green'},
+  atrasada:{label:'Atrasada',cls:'red'},
+  reprogramada:{label:'Reprogramada',cls:'yellow'},
+  bloqueada:{label:'Bloqueada',cls:'red'},
+  cancelada:{label:'Cancelada',cls:'gray'}
+};
+const CLIMA_MAP={sol:'☀️ Ensolarado',nublado:'⛅ Nublado',chuva:'🌧️ Chuvoso',chuva_forte:'⛈️ Chuva forte'};
+
+let _projectId=null,_tokenRow=null;
+
+function toast(msg,t='i'){
+  const d=document.createElement('div');
+  d.className='toast '+(t==='s'?'s':t==='e'?'e':'');
+  d.textContent=msg;
+  document.getElementById('toast-area').appendChild(d);
+  setTimeout(()=>d.remove(),3400);
+}
+function fmt(v){return v!=null?Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}):'R$ 0,00';}
+function fmtDate(d){if(!d)return'—';return new Date(d+'T12:00:00').toLocaleDateString('pt-BR');}
+function fmtDatetime(d){if(!d)return'—';return new Date(d).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});}
+function badgeHtml(status,map){const s=map[status]||{label:status||'—',cls:'gray'};return`<span class="badge ${s.cls}">${s.label}</span>`;}
+function showError(title,msg){
+  document.getElementById('loading-screen').style.display='none';
+  document.getElementById('err-title').textContent=title;
+  document.getElementById('err-msg').textContent=msg;
+  document.getElementById('error-screen').style.display='flex';
+}
+
+// ── BOOT ──────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded',async()=>{
+  document.getElementById('portal-logo').src=LOGO;
+  const params=new URLSearchParams(location.search);
+  const token=params.get('token');
+  const idDirect=params.get('id'); // internal preview (requires auth session)
+
+  if(token){
+    await bootByToken(token);
+  } else if(idDirect){
+    await bootBySession(idDirect);
+  } else {
+    showError('Link inválido','Nenhum código de acesso encontrado na URL.');
+  }
+});
+
+async function bootByToken(token){
+  // Look up token (anon policy allows read where ativo=true)
+  const{data:tk,error}=await sb.from('obs_portal_tokens')
+    .select('*').eq('token',token).eq('ativo',true).single();
+  if(error||!tk){showError('Acesso expirado ou inválido','Este link de acesso não existe ou foi revogado. Solicite um novo link à Obrasul.');return;}
+  if(tk.expira_em&&new Date(tk.expira_em)<new Date()){showError('Link expirado','Este link de acesso expirou. Solicite um novo link à Obrasul.');return;}
+  _tokenRow=tk;
+  _projectId=tk.project_id;
+  // Update last access
+  sb.from('obs_portal_tokens').update({ultimo_acesso:new Date().toISOString()}).eq('id',tk.id).then(()=>{});
+  await loadPortal();
+}
+
+async function bootBySession(id){
+  // Requires authenticated session (internal preview)
+  const{data:{session}}=await sb.auth.getSession();
+  if(!session){showError('Acesso restrito','Você precisa estar logado para visualizar este portal. Use o link compartilhável enviado ao síndico.');return;}
+  _projectId=id;
+  await loadPortal();
+}
+
+// ── LOAD PORTAL DATA ──────────────────────────────────────────────────────────
+async function loadPortal(){
+  const[
+    {data:project,error:pe},
+    {data:stages},
+    {data:rdos},
+    {data:fotos},
+    {data:docs},
+    {data:coms}
+  ]=await Promise.all([
+    sb.from('obs_projects').select('*,client:obs_clients(nome,endereco)').eq('id',_projectId).single(),
+    sb.from('obs_project_stages').select('*').eq('project_id',_projectId).order('ordem'),
+    sb.from('obs_diary').select('*').eq('project_id',_projectId).order('data',{ascending:false}).limit(10),
+    sb.from('obs_photos').select('*').eq('project_id',_projectId).order('created_at',{ascending:false}).limit(24),
+    sb.from('obs_documents').select('*').eq('project_id',_projectId).eq('visivel_sindico',true).order('created_at',{ascending:false}),
+    sb.from('obs_comunicados').select('*').eq('project_id',_projectId).order('created_at',{ascending:false})
+  ]);
+
+  if(pe||!project){showError('Obra não encontrada','Não foi possível carregar os dados desta obra.');return;}
+
+  renderProject(project);
+  renderStages(stages||[]);
+  renderRdos(rdos||[]);
+  renderFotos(fotos||[]);
+  renderDocs(docs||[]);
+  renderComunicados(coms||[]);
+  renderContatos(project);
+
+  document.getElementById('loading-screen').style.display='none';
+  document.getElementById('portal').style.display='block';
+}
+
+function renderProject(p){
+  const prog=p.data?.progresso||0;
+  const statusInfo=STATUS_OBRA[p.status]||{label:p.status||'—',cls:'gray'};
+
+  document.title=`${p.nome} — Portal do Síndico`;
+  document.getElementById('portal-title').textContent=p.nome;
+  document.getElementById('obra-nome').textContent=p.nome;
+  document.getElementById('obra-cliente').textContent=(p.client?.nome||'—')+(p.tipo_servico?' · '+p.tipo_servico:'');
+  document.getElementById('obra-status-badge').textContent=statusInfo.label;
+  document.getElementById('obra-status-badge').className='badge '+statusInfo.cls;
+  document.getElementById('obra-pct-label').textContent=prog+'%';
+  document.getElementById('obra-prog-fill').style.width=prog+'%';
+  document.getElementById('obra-prog-lbl').textContent=prog+'%';
+
+  const updatedAt=p.updated_at?fmtDatetime(p.updated_at):'—';
+  document.getElementById('obra-ultima-at').textContent=updatedAt;
+
+  document.getElementById('obra-info-grid').innerHTML=`
+    <div class="info-item"><div class="lbl">Condomínio</div><div class="val">${p.client?.nome||'—'}</div></div>
+    <div class="info-item"><div class="lbl">Tipo de serviço</div><div class="val">${p.tipo_servico||'—'}</div></div>
+    <div class="info-item"><div class="lbl">Data de início</div><div class="val">${fmtDate(p.data_inicio)}</div></div>
+    <div class="info-item"><div class="lbl">Previsão de conclusão</div><div class="val">${fmtDate(p.data_previsao_fim)}</div></div>
+    <div class="info-item"><div class="lbl">Responsável técnico</div><div class="val">${p.responsavel||'—'}</div></div>
+    <div class="info-item"><div class="lbl">Endereço</div><div class="val" style="font-size:.82rem;">${p.client?.endereco||p.data?.endereco||'—'}</div></div>
+  `;
+}
+
+function renderStages(stages){
+  const wrap=document.getElementById('stages-list');
+  if(!stages.length){wrap.innerHTML='<p style="color:#94a3b8;font-size:.78rem;">Etapas não cadastradas ainda.</p>';return;}
+  const current=stages.find(s=>s.status==='em_andamento');
+  const next=stages.find(s=>s.status==='nao_iniciada'&&(!current||stages.indexOf(s)>stages.indexOf(current)));
+  let html='';
+  if(current||next){
+    html+=`<div style="background:#fff7ed;border-radius:.5rem;padding:.65rem .85rem;margin-bottom:.85rem;display:flex;gap:1rem;flex-wrap:wrap;">`;
+    if(current)html+=`<div><div style="font-size:.65rem;font-weight:700;color:#92400e;text-transform:uppercase;">Etapa atual</div><div style="font-size:.85rem;font-weight:700;color:#c2410c;">${current.nome}</div></div>`;
+    if(next)html+=`<div><div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;">Próxima etapa</div><div style="font-size:.85rem;font-weight:600;color:#374151;">${next.nome}</div></div>`;
+    html+='</div>';
+  }
+  html+=stages.map(s=>`
+    <div class="stage-row">
+      <div class="stage-name">${s.nome||'—'}</div>
+      <div class="stage-prog"><div class="stage-fill" style="width:${s.percentual||0}%"></div></div>
+      <div class="stage-pct">${s.percentual||0}%</div>
+      <div class="stage-status">${badgeHtml(s.status||'nao_iniciada',STATUS_ETAPA)}</div>
+      ${s.data_inicio_previsto?`<div style="font-size:.7rem;color:#94a3b8;">${fmtDate(s.data_inicio_previsto)} → ${fmtDate(s.data_fim_previsto)}</div>`:''}
+    </div>`).join('');
+  wrap.innerHTML=html;
+}
+
+function renderRdos(rdos){
+  const wrap=document.getElementById('updates-list');
+  if(!rdos.length){wrap.innerHTML='<p style="color:#94a3b8;font-size:.78rem;">Nenhuma atualização registrada ainda.</p>';return;}
+  wrap.innerHTML=rdos.map(r=>`
+    <div class="update-card">
+      <div class="date">${fmtDate(r.data)}</div>
+      <div class="clima">${CLIMA_MAP[r.clima]||r.clima||''} · ${r.trabalhadores||0} colaboradores em campo</div>
+      <div class="body">${r.atividades||'—'}</div>
+      ${r.ocorrencias?`<div class="body" style="color:#dc2626;margin-top:.3rem;"><strong>Ocorrência:</strong> ${r.ocorrencias}</div>`:''}
+    </div>`).join('');
+}
+
+function renderFotos(fotos){
+  if(!fotos.length){document.getElementById('fotos-card').style.display='none';return;}
+  document.getElementById('fotos-card').style.display='block';
+  document.getElementById('foto-grid').innerHTML=fotos.map(f=>`
+    <div class="foto-card">
+      ${f.url&&f.url.startsWith('http')?
+        `<img src="${f.url}" alt="${f.legenda||''}" class="foto-img" onerror="this.parentNode.querySelector('.foto-img-placeholder').style.display='flex';this.style.display='none';">
+         <div class="foto-img-placeholder" style="display:none;">📷</div>`
+        :`<div class="foto-img-placeholder">📷</div>`}
+      <div class="foto-label">${f.legenda||'Sem legenda'}<br><span style="color:#94a3b8;">${fmtDate(f.created_at)}</span></div>
+    </div>`).join('');
+}
+
+function renderDocs(docs){
+  if(!docs.length){document.getElementById('docs-card').style.display='none';return;}
+  document.getElementById('docs-card').style.display='block';
+  const icons={contrato:'📄',art:'🏗️',orcamento_aprovado:'📋',laudo:'🔬',as_built:'📐',seguro:'🛡️',outro:'📎'};
+  document.getElementById('docs-list').innerHTML=docs.map(d=>`
+    <div class="doc-row">
+      <span class="doc-icon">${icons[d.tipo]||'📎'}</span>
+      <div class="doc-name">
+        <div style="font-weight:600;">${d.nome}</div>
+        <div style="font-size:.7rem;color:#64748b;">${d.tipo||'—'} · ${fmtDate(d.created_at)}</div>
+      </div>
+      ${d.url?`<a href="${d.url}" target="_blank" class="btn btn-outline" style="font-size:.72rem;padding:.3rem .6rem;text-decoration:none;">⬇️ Baixar</a>`:'<span style="font-size:.72rem;color:#94a3b8;">Indisponível</span>'}
+    </div>`).join('');
+}
+
+function renderComunicados(coms){
+  const wrap=document.getElementById('com-list');
+  const unread=coms.filter(c=>!c.lido&&c.remetente==='obrasul').length;
+  if(unread>0){
+    document.getElementById('unread-badge').textContent=unread+' nova(s)';
+    document.getElementById('unread-badge').style.display='inline';
+  }
+  if(!coms.length){wrap.innerHTML='<p style="color:#94a3b8;font-size:.78rem;margin-bottom:1rem;">Nenhum comunicado ainda.</p>';return;}
+  const map={'obrasul':'🏢 Obrasul','sindico':'👤 Síndico'};
+  wrap.innerHTML=coms.map(c=>`
+    <div class="com-card ${c.tipo==='urgente'?'com-urgente':''}">
+      <div class="com-header">
+        <span class="com-remetente">${map[c.remetente]||c.remetente}</span>
+        ${c.remetente_nome?`<span style="font-size:.7rem;color:#64748b;">(${c.remetente_nome})</span>`:''}
+        <span class="com-date">${fmtDatetime(c.created_at)}</span>
+        ${c.tipo==='urgente'?'<span class="badge red" style="margin-left:auto;">Urgente</span>':''}
+        ${c.tipo==='solicitacao'?'<span class="badge blue" style="margin-left:auto;">Solicitação</span>':''}
+      </div>
+      <div class="com-msg">${c.mensagem}</div>
+    </div>`).join('');
+  // Mark as read (update lido=true for obrasul messages when síndico views)
+  const unreadIds=coms.filter(c=>!c.lido&&c.remetente==='obrasul').map(c=>c.id);
+  if(unreadIds.length){
+    sb.from('obs_comunicados').update({lido:true}).in('id',unreadIds).then(()=>{});
+  }
+}
+
+function renderContatos(p){
+  const items=[];
+  if(p.responsavel)items.push({icon:'👷',label:'Responsável técnico',val:p.responsavel});
+  if(p.data?.lider)items.push({icon:'🦺',label:'Líder de obra',val:p.data.lider});
+  items.push({icon:'🏢',label:'Empresa',val:'Obrasul Reformas e Revitalizações'});
+  items.push({icon:'📞',label:'Contato Obrasul',val:'(11) 9 9999-9999'});
+  document.getElementById('contatos-list').innerHTML=items.map(i=>`
+    <div style="display:flex;align-items:center;gap:.75rem;padding:.55rem 0;border-bottom:1px solid #f1f5f9;font-size:.85rem;">
+      <span style="font-size:1.2rem;">${i.icon}</span>
+      <div>
+        <div style="font-size:.68rem;color:#64748b;font-weight:600;text-transform:uppercase;">${i.label}</div>
+        <div style="font-weight:600;color:#0B1D33;">${i.val}</div>
+      </div>
+    </div>`).join('');
+}
+
+// ── ENVIAR MENSAGEM (SÍNDICO → OBRASUL) ────────────────────────────────────────
+async function sendReply(){
+  const nome=document.getElementById('reply-nome').value.trim();
+  const msg=document.getElementById('reply-msg').value.trim();
+  const tipo=document.getElementById('reply-tipo').value;
+  if(!msg){toast('Escreva uma mensagem','e');return;}
+  const{error}=await sb.from('obs_comunicados').insert({
+    project_id:_projectId,
+    remetente:'sindico',
+    remetente_nome:nome||'Síndico',
+    mensagem:msg,
+    tipo,
+    lido:false
+  });
+  if(error){toast('Erro ao enviar: '+error.message,'e');return;}
+  document.getElementById('reply-msg').value='';
+  toast('Mensagem enviada com sucesso!','s');
+  // Reload comunicados
+  const{data:coms}=await sb.from('obs_comunicados').select('*').eq('project_id',_projectId).order('created_at',{ascending:false});
+  renderComunicados(coms||[]);
+}
+</script>
+</body>
+</html>

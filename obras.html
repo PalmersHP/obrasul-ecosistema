@@ -805,7 +805,62 @@ async function updateObraStatus(){
 
 function openPortalSindico(){
   if(!_currentObra)return;
-  window.open('portal-sindico.html?id='+_currentObra.id,'_blank');
+  openModal('Portal do Síndico',`
+    <p style="font-size:.82rem;color:#374151;margin-bottom:1rem;">Escolha como acessar o portal desta obra:</p>
+    <div style="display:flex;flex-direction:column;gap:.75rem;">
+      <div style="border:1px solid #e2e8f0;border-radius:.6rem;padding:.85rem 1rem;">
+        <div style="font-size:.8rem;font-weight:700;color:#0B1D33;margin-bottom:.2rem;">👁️ Pré-visualizar (só você)</div>
+        <div style="font-size:.72rem;color:#64748b;margin-bottom:.6rem;">Abre o portal com sua sessão atual. O síndico não tem acesso a este link.</div>
+        <button class="btn btn-outline btn-sm" onclick="window.open('portal-sindico.html?id=${_currentObra.id}','_blank');closeModal()">Abrir pré-visualização</button>
+      </div>
+      <div style="border:1px solid #e2e8f0;border-radius:.6rem;padding:.85rem 1rem;">
+        <div style="font-size:.8rem;font-weight:700;color:#0B1D33;margin-bottom:.2rem;">🔗 Gerar link compartilhável</div>
+        <div style="font-size:.72rem;color:#64748b;margin-bottom:.6rem;">Cria um link único para o síndico acessar sem precisar de login. Você pode desativar a qualquer momento.</div>
+        <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
+          <input id="portal-nome-sindico" placeholder="Nome do síndico (opcional)" style="flex:1;min-width:160px;padding:.4rem .65rem;border:1px solid #e2e8f0;border-radius:.4rem;font-size:.78rem;outline:none;">
+          <input id="portal-email-sindico" placeholder="E-mail (opcional)" style="flex:1;min-width:160px;padding:.4rem .65rem;border:1px solid #e2e8f0;border-radius:.4rem;font-size:.78rem;outline:none;">
+        </div>
+        <div style="margin-top:.6rem;display:flex;gap:.5rem;">
+          <input id="portal-link-result" readonly placeholder="Link gerado aparecerá aqui..." style="flex:1;padding:.4rem .65rem;border:1px solid #e2e8f0;border-radius:.4rem;font-size:.75rem;outline:none;background:#f8fafc;color:#374151;">
+          <button class="btn btn-og btn-sm" onclick="gerarLinkPortal()">Gerar link</button>
+          <button class="btn btn-outline btn-sm" onclick="copiarLinkPortal()" id="btn-copy-portal" style="display:none;">📋 Copiar</button>
+        </div>
+      </div>
+    </div>
+  `,`<button class="btn btn-outline btn-sm" onclick="closeModal()">Fechar</button>`);
+}
+
+async function gerarLinkPortal(){
+  if(!_currentObra)return;
+  const nome=document.getElementById('portal-nome-sindico')?.value||'';
+  const email=document.getElementById('portal-email-sindico')?.value||'';
+  // Check if token already exists for this project
+  const{data:existing}=await sb.from('obs_portal_tokens').select('token,ativo').eq('project_id',_currentObra.id).eq('ativo',true).limit(1).single();
+  let token;
+  if(existing){
+    token=existing.token;
+  } else {
+    const{data:created,error}=await sb.from('obs_portal_tokens').insert({
+      project_id:_currentObra.id,
+      client_id:_currentObra.client_id||null,
+      nome_sindico:nome,email_sindico:email,
+      ativo:true
+    }).select('token').single();
+    if(error){toast('Erro ao gerar link: '+error.message,'e');return;}
+    token=created.token;
+  }
+  const url=location.origin+location.pathname.replace('obras.html','portal-sindico.html')+'?token='+token;
+  const inp=document.getElementById('portal-link-result');
+  inp.value=url;
+  document.getElementById('btn-copy-portal').style.display='';
+  toast('Link gerado!','s');
+}
+
+async function copiarLinkPortal(){
+  const url=document.getElementById('portal-link-result')?.value;
+  if(!url)return;
+  try{await navigator.clipboard.writeText(url);toast('Link copiado!','s');}
+  catch{toast('Copie manualmente o link','w');}
 }
 
 // ── TABS ─────────────────────────────────────────────────────────────────────
