@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Qualidade — Obrasul</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+:root{--navy:#0B1D33;--orange:#E87722;--sidebar:220px;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:"Segoe UI",system-ui,sans-serif;background:#f1f5f9;color:#1e293b;}
+#login-overlay{position:fixed;inset:0;z-index:300;background:#0B1D33;display:flex;align-items:center;justify-content:center;}
+.login-card{background:#fff;border-radius:1rem;padding:2.5rem;width:100%;max-width:400px;box-shadow:0 20px 60px #0008;}
+.inp{width:100%;padding:.6rem .85rem;border:1px solid #cbd5e1;border-radius:.5rem;font-size:.9rem;outline:none;}
+.inp:focus{border-color:#E87722;box-shadow:0 0 0 3px #E8772222;}
+.btn-primary{width:100%;background:#E87722;color:#fff;border:none;padding:.7rem;border-radius:.5rem;font-weight:700;cursor:pointer;margin-top:1rem;}
+.sidebar{position:fixed;top:0;left:0;bottom:0;width:var(--sidebar);background:#0B1D33;display:flex;flex-direction:column;z-index:100;overflow-y:auto;transition:.25s;}
+.sidebar.collapsed{width:60px;}
+.sidebar-logo{padding:1rem;border-bottom:1px solid #1e3a5f;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.sidebar-logo img{width:140px;max-width:100%;object-fit:contain;transition:.25s;}
+.sidebar.collapsed .sidebar-logo img{width:32px;}
+.sidebar.collapsed .nav-label,.sidebar.collapsed .nav-item span.lbl,.sidebar.collapsed .sidebar-footer-text{display:none;}
+.sidebar.collapsed .nav-item{justify-content:center;padding:.55rem 0;}
+.nav-section{padding:.5rem 0;flex-shrink:0;}
+.nav-label{font-size:.6rem;font-weight:800;letter-spacing:.12em;color:#475569;padding:.75rem 1rem .25rem;text-transform:uppercase;}
+.nav-item{display:flex;align-items:center;gap:.6rem;padding:.55rem 1rem;font-size:.82rem;color:#94a3b8;cursor:pointer;transition:.15s;border-left:3px solid transparent;text-decoration:none;}
+.nav-item:hover{color:#fff;background:#1e3a5f;}
+.nav-item.active{color:#E87722;border-left-color:#E87722;background:#1e3a5f22;font-weight:600;}
+.nav-item .ic{font-size:1rem;width:1.2rem;text-align:center;flex-shrink:0;}
+.sidebar-footer{margin-top:auto;border-top:1px solid #1e3a5f;padding:.75rem 1rem;flex-shrink:0;}
+.user-info{font-size:.75rem;color:#94a3b8;line-height:1.5;}
+.user-info b{color:#fff;display:block;}
+.btn-logout{width:100%;margin-top:.5rem;background:#1e3a5f;color:#94a3b8;border:none;padding:.4rem;border-radius:.4rem;font-size:.75rem;cursor:pointer;}
+.btn-logout:hover{background:#ef4444;color:#fff;}
+#app{display:none;}
+.main{margin-left:var(--sidebar);min-height:100vh;display:flex;flex-direction:column;transition:.25s;}
+.main.expanded{margin-left:60px;}
+.top-bar{background:#fff;border-bottom:1px solid #e2e8f0;padding:.6rem 1.5rem;display:flex;align-items:center;gap:.75rem;position:sticky;top:0;z-index:50;}
+.top-bar h2{font-size:1rem;font-weight:700;color:#0B1D33;}
+.page-wrap{padding:1.5rem;flex:1;}
+.card{background:#fff;border-radius:.75rem;box-shadow:0 1px 4px #0001;}
+.btn{padding:.4rem .9rem;border-radius:.45rem;font-size:.8rem;font-weight:600;cursor:pointer;border:none;transition:.15s;}
+.btn-og{background:#E87722;color:#fff;}.btn-og:hover{background:#d06918;}
+.btn-outline{background:#fff;color:#374151;border:1px solid #e2e8f0;}.btn-outline:hover{background:#f8fafc;}
+.btn-sm{padding:.3rem .65rem;font-size:.75rem;}
+.btn-danger{background:#fef2f2;color:#dc2626;border:1px solid #fecaca;}.btn-danger:hover{background:#dc2626;color:#fff;}
+.btn-green{background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;}.btn-green:hover{background:#166534;color:#fff;}
+.badge{display:inline-block;padding:.15rem .55rem;border-radius:9999px;font-size:.68rem;font-weight:700;}
+.badge.blue{background:#eff6ff;color:#1d4ed8;}.badge.green{background:#f0fdf4;color:#166534;}
+.badge.orange{background:#fff7ed;color:#c2410c;}.badge.gray{background:#f1f5f9;color:#475569;}
+.badge.red{background:#fef2f2;color:#dc2626;}.badge.yellow{background:#fefce8;color:#854d0e;}
+.badge.teal{background:#f0fdfa;color:#0f766e;}.badge.purple{background:#faf5ff;color:#7c3aed;}
+#modal-overlay{position:fixed;inset:0;background:#0006;z-index:200;display:none;align-items:center;justify-content:center;padding:1rem;}
+#modal-overlay.open{display:flex;}
+.modal{background:#fff;border-radius:1rem;width:100%;max-width:640px;max-height:92vh;overflow-y:auto;box-shadow:0 20px 60px #0004;}
+.modal-header{padding:1.1rem 1.4rem;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:1;}
+.modal-header h3{font-size:1rem;font-weight:700;color:#0B1D33;}
+.modal-body{padding:1.2rem 1.4rem;display:flex;flex-direction:column;gap:.85rem;}
+.modal-footer{padding:.9rem 1.4rem;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:.5rem;}
+.field label{display:block;font-size:.78rem;font-weight:600;color:#374151;margin-bottom:.3rem;}
+.field input,.field select,.field textarea{width:100%;padding:.5rem .75rem;border:1px solid #cbd5e1;border-radius:.45rem;font-size:.85rem;outline:none;transition:.15s;}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:#E87722;box-shadow:0 0 0 3px #E8772222;}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;}
+#toast-area{position:fixed;bottom:1.5rem;right:1.5rem;z-index:999;display:flex;flex-direction:column;gap:.5rem;}
+.toast{background:#1e293b;color:#fff;padding:.65rem 1rem;border-radius:.5rem;font-size:.82rem;font-weight:500;box-shadow:0 4px 16px #0004;animation:fadeUp .25s ease;max-width:320px;}
+.toast.s{background:#166534;}.toast.e{background:#dc2626;}.toast.w{background:#92400e;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.tab-bar{display:flex;gap:0;border-bottom:2px solid #e2e8f0;margin-bottom:1.25rem;}
+.tab{padding:.55rem 1.1rem;font-size:.82rem;font-weight:600;color:#64748b;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:.15s;white-space:nowrap;}
+.tab.active{color:#E87722;border-bottom-color:#E87722;}
+.tab-panel{display:none;}.tab-panel.active{display:block;}
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.75rem;margin-bottom:1.5rem;}
+.kpi{background:#fff;border-radius:.75rem;padding:.9rem 1rem;border-left:4px solid #E87722;box-shadow:0 1px 4px #0001;}
+.kpi.green{border-left-color:#22c55e;}.kpi.blue{border-left-color:#3b82f6;}.kpi.yellow{border-left-color:#f59e0b;}
+.kpi.teal{border-left-color:#14b8a6;}.kpi.orange{border-left-color:#f97316;}
+.kpi-label{font-size:.65rem;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+.kpi-value{font-size:1.15rem;font-weight:800;color:#0B1D33;margin:.25rem 0 .1rem;}
+.kpi-sub{font-size:.68rem;color:#94a3b8;}
+.filter-bar{background:#fff;border-radius:.75rem;box-shadow:0 1px 4px #0001;padding:.65rem 1rem;margin-bottom:1rem;display:flex;align-items:center;gap:.65rem;flex-wrap:wrap;}
+.filter-bar input,.filter-bar select{padding:.35rem .6rem;border:1px solid #e2e8f0;border-radius:.4rem;font-size:.78rem;outline:none;color:#374151;}
+table{width:100%;border-collapse:collapse;font-size:.82rem;}
+th{background:#f8fafc;padding:.5rem .85rem;text-align:left;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e2e8f0;}
+td{padding:.55rem .85rem;border-bottom:1px solid #f1f5f9;color:#374151;vertical-align:middle;}
+tr:hover td{background:#fafafa;}
+.check-item{display:flex;align-items:flex-start;gap:.6rem;padding:.5rem .65rem;border-radius:.4rem;transition:.1s;cursor:pointer;}
+.check-item:hover{background:#fafafa;}
+.check-item input[type=checkbox]{width:1rem;height:1rem;margin-top:.1rem;accent-color:#E87722;flex-shrink:0;cursor:pointer;}
+.check-item label{font-size:.85rem;color:#374151;cursor:pointer;flex:1;}
+.check-item.done label{text-decoration:line-through;color:#94a3b8;}
+.check-obs{font-size:.75rem;color:#64748b;margin-top:.2rem;border:1px solid #e2e8f0;border-radius:.35rem;padding:.3rem .5rem;width:100%;outline:none;}
+.check-obs:focus{border-color:#E87722;}
+.progress-ring{display:inline-flex;align-items:center;justify-content:center;position:relative;}
+.progress-text{font-size:.75rem;font-weight:700;color:#0B1D33;}
+.checklist-card{background:#fff;border:1px solid #e2e8f0;border-radius:.65rem;padding:.9rem 1rem;margin-bottom:.5rem;cursor:pointer;transition:.15s;}
+.checklist-card:hover{border-color:#E87722;box-shadow:0 2px 8px #E8772211;}
+.progress-bar{height:5px;border-radius:9999px;background:#e2e8f0;margin-top:.4rem;overflow:hidden;}
+.progress-fill{height:100%;border-radius:9999px;background:#22c55e;transition:.3s;}
+</style>
+</head>
+<body>
+<div id="login-overlay">
+  <div class="login-card">
+    <div style="text-align:center;margin-bottom:1.5rem;"><img id="li-logo" src="" alt="Obrasul" style="height:50px;object-fit:contain;margin:0 auto;"></div>
+    <div class="field" style="margin-bottom:.75rem;"><label>E-mail</label><input class="inp" type="email" id="li-email" placeholder="seu@email.com"></div>
+    <div class="field" style="margin-bottom:.75rem;"><label>Senha</label><input class="inp" type="password" id="li-pw" placeholder="••••••••"></div>
+    <div id="li-err" style="color:#dc2626;font-size:.8rem;min-height:1.2rem;"></div>
+    <button class="btn-primary" onclick="doLogin()">Entrar</button>
+  </div>
+</div>
+
+<div id="app">
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo"><img id="sb-logo" src="" alt="Obrasul"></div>
+  <div style="padding:.5rem .6rem;border-bottom:1px solid #1e3a5f;flex-shrink:0;">
+    <button onclick="toggleSidebar()" style="width:100%;background:#1e3a5f22;color:#94a3b8;border:none;border-radius:.4rem;padding:.35rem;font-size:.8rem;cursor:pointer;">☰</button>
+  </div>
+  
+  <nav class="nav-section">
+    <div class="nav-label">Principal</div>
+    <a href="index.html" class="nav-item"><span class="ic">🏠</span><span class="lbl">Dashboard</span></a>
+    <a href="clientes.html" class="nav-item"><span class="ic">🏢</span><span class="lbl">Clientes</span></a>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-label">Operações</div>
+    <a href="orcamentos.html" class="nav-item"><span class="ic">📋</span><span class="lbl">Orçamentos</span></a>
+    <a href="obras.html" class="nav-item"><span class="ic">🏗️</span><span class="lbl">Obras</span></a>
+    <a href="financeiro.html" class="nav-item"><span class="ic">💰</span><span class="lbl">Financeiro</span></a>
+    <a href="contratos.html" class="nav-item"><span class="ic">📄</span><span class="lbl">Contratos</span></a>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-label">Recursos</div>
+    <a href="compras.html" class="nav-item"><span class="ic">🛒</span><span class="lbl">Compras</span></a>
+    <a href="estoque.html" class="nav-item"><span class="ic">📦</span><span class="lbl">Estoque</span></a>
+    <a href="equipe.html" class="nav-item"><span class="ic">👷</span><span class="lbl">Equipe</span></a>
+    <a href="qualidade.html" class="nav-item active"><span class="ic">✅</span><span class="lbl">Qualidade</span></a>
+    <a href="garantias.html" class="nav-item"><span class="ic">🛡️</span><span class="lbl">Garantias</span></a>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-label">Comunicação</div>
+    <a href="comunicados.html" class="nav-item"><span class="ic">📢</span><span class="lbl">Comunicados</span></a>
+    <a href="biblioteca.html" class="nav-item"><span class="ic">📚</span><span class="lbl">Biblioteca</span></a>
+    <a href="relatorios.html" class="nav-item"><span class="ic">📊</span><span class="lbl">Relatórios</span></a>
+    <a href="index.html#configuracoes" class="nav-item"><span class="ic">⚙️</span><span class="lbl">Configurações</span></a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="user-info sidebar-footer-text"><b id="sb-user-name">—</b><span id="sb-user-email">—</span></div>
+    <button class="btn-logout" onclick="doLogout()">Sair</button>
+  </div>
+</aside>
+
+<div class="main" id="main">
+  <div class="top-bar">
+    <span style="font-size:1.2rem;">✅</span>
+    <h2>Qualidade</h2>
+    <div style="margin-left:auto;display:flex;gap:.5rem;">
+      <button class="btn btn-og btn-sm" onclick="openModal()">+ Novo Checklist</button>
+    </div>
+  </div>
+  <div class="page-wrap">
+    <div class="kpi-row">
+      <div class="kpi"><div class="kpi-label">Total</div><div class="kpi-value" id="k-total">—</div><div class="kpi-sub">checklists</div></div>
+      <div class="kpi green"><div class="kpi-label">Assinados</div><div class="kpi-value" id="k-sign">—</div><div class="kpi-sub">concluídos</div></div>
+      <div class="kpi teal"><div class="kpi-label">Segurança</div><div class="kpi-value" id="k-seg">—</div><div class="kpi-sub">checklists</div></div>
+      <div class="kpi blue"><div class="kpi-label">Qualidade</div><div class="kpi-value" id="k-qual">—</div><div class="kpi-sub">checklists</div></div>
+      <div class="kpi orange"><div class="kpi-label">Entrega</div><div class="kpi-value" id="k-ent">—</div><div class="kpi-sub">checklists</div></div>
+    </div>
+
+    <div class="tab-bar">
+      <div class="tab active" onclick="switchTab('lista',this)">Lista</div>
+      <div class="tab" onclick="switchTab('visualizar',this)" id="tab-btn-vis" style="display:none;">Visualizando</div>
+    </div>
+
+    <div id="tab-lista" class="tab-panel active">
+      <div class="filter-bar">
+        <input type="text" id="f-search" placeholder="Buscar obra…" style="min-width:180px;" oninput="renderLista()">
+        <select id="f-tipo-f" onchange="renderLista()">
+          <option value="">Todos os tipos</option>
+          <option value="seguranca">Segurança</option>
+          <option value="qualidade">Qualidade</option>
+          <option value="entrega">Entrega</option>
+        </select>
+        <select id="f-obra-f" onchange="renderLista()"><option value="">Todas as obras</option></select>
+        <label style="display:flex;align-items:center;gap:.3rem;font-size:.78rem;cursor:pointer;">
+          <input type="checkbox" id="f-pendentes" onchange="renderLista()"> Pendentes
+        </label>
+        <button class="btn btn-outline btn-sm" style="margin-left:auto;" onclick="loadData()">↻</button>
+      </div>
+      <div id="checklist-list"></div>
+    </div>
+
+    <div id="tab-visualizar" class="tab-panel">
+      <div id="checklist-view"></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- Modal Novo Checklist -->
+<div id="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Novo Checklist</h3>
+      <button onclick="closeModal()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#64748b;">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field-row">
+        <div class="field"><label>Obra*</label><select id="f-obra-m"></select></div>
+        <div class="field"><label>Tipo*</label>
+          <select id="f-tipo-m" onchange="loadTemplate()">
+            <option value="seguranca">Segurança</option>
+            <option value="qualidade">Qualidade</option>
+            <option value="entrega">Entrega</option>
+          </select>
+        </div>
+      </div>
+      <div class="field"><label>Data</label><input id="f-data-m" type="date"></div>
+      <div style="font-size:.78rem;font-weight:600;color:#374151;margin-bottom:.5rem;">Itens do Checklist</div>
+      <div id="modal-itens" style="border:1px solid #e2e8f0;border-radius:.5rem;padding:.5rem;max-height:320px;overflow-y:auto;"></div>
+      <button class="btn btn-outline btn-sm" onclick="addItem()" style="align-self:flex-start;">+ Adicionar Item</button>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-og" onclick="saveChecklist()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-area"></div>
+
+<script>
+
+const TEMPLATES={
+  seguranca:[
+    "EPI completo em uso (capacete, cinto, luvas, óculos)",
+    "Sinalização de área de risco instalada",
+    "Andaimes inspecionados e aprovados",
+    "Linha de vida fixada e verificada",
+    "Extintores acessíveis e dentro do prazo",
+    "PCMSO e PPRA atualizados",
+    "Ordem de Serviço assinada pelos colaboradores",
+    "Cinta de segurança de andaimes travada",
+    "Redes de proteção instaladas",
+    "Isolamento do perímetro realizado"
+  ],
+  qualidade:[
+    "Superfície preparada conforme especificação técnica",
+    "Material aprovado pelo engenheiro responsável",
+    "Espessura de aplicação dentro do especificado",
+    "Aspecto visual aprovado (sem bolhas, fissuras, manchas)",
+    "Cura respeitada conforme ficha técnica do produto",
+    "Teste de aderência realizado",
+    "Registro fotográfico das etapas efetuado",
+    "Limpeza da área após aplicação",
+    "Ensaios de qualidade realizados e aprovados",
+    "Checklist de qualidade assinado pelo responsável técnico"
+  ],
+  entrega:[
+    "Limpeza geral da área realizada",
+    "Remoção de resíduos e entulho",
+    "Pintura de acabamento e retoques concluídos",
+    "Todas as etapas do cronograma concluídas",
+    "Documentação técnica entregue (ART, laudos, manuais)",
+    "Fotos de conclusão registradas",
+    "Vistoria técnica realizada e aprovada",
+    "Término de Obra assinado",
+    "Portal do síndico atualizado",
+    "Garantia registrada no sistema"
+  ]
+};
+
+const SB_URL='https://jmjbdundgbbefvhvyffb.supabase.co';
+const SB_KEY='sb_publishable_CeLpQY1DjpWfv8U2lSMmew_Uqq6OchZ';
+const sb=supabase.createClient(SB_URL,SB_KEY);
+let _checklists=[], _obras=[], _viewId=null;
+
+async function boot(){
+  const logo=await getLogoUrl();
+  document.getElementById('li-logo').src=logo;
+  document.getElementById('sb-logo').src=logo;
+  const{data:{session}}=await sb.auth.getSession();
+  if(session) await enterApp(session.user);
+}
+async function getLogoUrl(){try{const{data}=sb.storage.from('logos').getPublicUrl('obrasul-logo.png');return data.publicUrl;}catch(e){return '';}}
+async function doLogin(){
+  const email=document.getElementById('li-email').value.trim(),pw=document.getElementById('li-pw').value;
+  document.getElementById('li-err').textContent='';
+  const{data,error}=await sb.auth.signInWithPassword({email,password:pw});
+  if(error){document.getElementById('li-err').textContent=error.message;return;}
+  await enterApp(data.user);
+}
+async function enterApp(user){
+  document.getElementById('sb-user-email').textContent=user.email;
+  const{data:p}=await sb.from('obs_perfis').select('nome_completo').eq('id',user.id).single();
+  document.getElementById('sb-user-name').textContent=p?.nome_completo||user.email;
+  document.getElementById('login-overlay').style.display='none';
+  document.getElementById('app').style.display='block';
+  await loadData();
+}
+async function doLogout(){await sb.auth.signOut();location.reload();}
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('collapsed');document.getElementById('main').classList.toggle('expanded');}
+function switchTab(id,el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  if(el) el.classList.add('active'); else document.getElementById('tab-btn-'+id)?.classList.add('active');
+  document.getElementById('tab-'+id).classList.add('active');
+}
+
+async function loadData(){
+  const[{data:cl},{data:ob}]=await Promise.all([
+    sb.from('obs_checklists').select('*, obs_projects(nome)').order('created_at',{ascending:false}),
+    sb.from('obs_projects').select('id,nome').order('nome')
+  ]);
+  _checklists=cl||[]; _obras=ob||[];
+  document.getElementById('f-obra-f').innerHTML='<option value="">Todas as obras</option>'+_obras.map(o=>`<option value="${o.id}">${o.nome}</option>`).join('');
+  document.getElementById('f-obra-m').innerHTML='<option value="">Selecione a obra…</option>'+_obras.map(o=>`<option value="${o.id}">${o.nome}</option>`).join('');
+  updateKPIs(); renderLista();
+}
+
+function updateKPIs(){
+  document.getElementById('k-total').textContent=_checklists.length;
+  document.getElementById('k-sign').textContent=_checklists.filter(c=>c.assinado).length;
+  document.getElementById('k-seg').textContent=_checklists.filter(c=>c.tipo==='seguranca').length;
+  document.getElementById('k-qual').textContent=_checklists.filter(c=>c.tipo==='qualidade').length;
+  document.getElementById('k-ent').textContent=_checklists.filter(c=>c.tipo==='entrega').length;
+}
+
+function renderLista(){
+  const s=document.getElementById('f-search').value.toLowerCase();
+  const tipo=document.getElementById('f-tipo-f').value;
+  const obra=document.getElementById('f-obra-f').value;
+  const pend=document.getElementById('f-pendentes').checked;
+  let list=_checklists;
+  if(s) list=list.filter(c=>(c.obs_projects?.nome||'').toLowerCase().includes(s));
+  if(tipo) list=list.filter(c=>c.tipo===tipo);
+  if(obra) list=list.filter(c=>c.project_id===obra);
+  if(pend) list=list.filter(c=>!c.assinado);
+  const container=document.getElementById('checklist-list');
+  if(!list.length){container.innerHTML='<div style="padding:2rem;text-align:center;color:#94a3b8;font-size:.85rem;">Nenhum checklist encontrado.</div>';return;}
+  container.innerHTML=list.map(c=>{
+    const itens=Array.isArray(c.itens)?c.itens:[];
+    const total=itens.length, ok=itens.filter(i=>i.ok).length;
+    const pct=total?Math.round(ok/total*100):0;
+    return `<div class="checklist-card" onclick="openView('${c.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem;">
+        <div>
+          <div style="font-weight:700;color:#0B1D33;font-size:.88rem;">${c.obs_projects?.nome||'—'}</div>
+          <div style="font-size:.75rem;color:#64748b;margin-top:.15rem;">${fmtDate(c.data||c.created_at)} · ${total} itens</div>
+        </div>
+        <div style="display:flex;gap:.3rem;align-items:center;flex-shrink:0;">
+          ${badgeTipo(c.tipo)}
+          ${c.assinado?'<span class="badge green">✓ Assinado</span>':'<span class="badge yellow">Pendente</span>'}
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:.5rem;margin-top:.4rem;">
+        <div class="progress-bar" style="flex:1;"><div class="progress-fill" style="width:${pct}%;"></div></div>
+        <span style="font-size:.72rem;color:#64748b;flex-shrink:0;">${ok}/${total}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openView(id){
+  _viewId=id;
+  const c=_checklists.find(x=>x.id===id);
+  if(!c)return;
+  renderView(c);
+  document.getElementById('tab-btn-vis').style.display='';
+  const tabEl=document.getElementById('tab-btn-vis');
+  switchTab('visualizar',tabEl);
+}
+
+function renderView(c){
+  const itens=Array.isArray(c.itens)?c.itens.map((it,i)=>({...it,_i:i})):[];
+  const total=itens.length, ok=itens.filter(i=>i.ok).length;
+  const pct=total?Math.round(ok/total*100):0;
+  const obraNome=c.obs_projects?.nome||'—';
+  document.getElementById('checklist-view').innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.75rem;margin-bottom:1.25rem;">
+      <div>
+        <div style="font-size:1rem;font-weight:700;color:#0B1D33;">${obraNome}</div>
+        <div style="font-size:.78rem;color:#64748b;margin-top:.2rem;">${badgeTipo(c.tipo)} · ${fmtDate(c.data||c.created_at)}</div>
+      </div>
+      <div style="display:flex;gap:.5rem;align-items:center;">
+        <div style="font-size:1.5rem;font-weight:800;color:${pct===100?'#166534':'#E87722'};">${pct}%</div>
+        <div style="font-size:.72rem;color:#64748b;">${ok}/${total}<br>itens OK</div>
+      </div>
+    </div>
+    <div class="progress-bar" style="margin-bottom:1.25rem;height:8px;"><div class="progress-fill" style="width:${pct}%;background:${pct===100?'#22c55e':'#E87722'};"></div></div>
+    <div class="card" style="padding:.5rem;margin-bottom:1rem;">
+      ${itens.map(it=>`
+        <div class="check-item ${it.ok?'done':''}" id="ci-${it._i}">
+          <input type="checkbox" id="chk-${it._i}" ${it.ok?'checked':''} onchange="toggleItem(${it._i})">
+          <div style="flex:1;">
+            <label for="chk-${it._i}">${it.descricao}</label>
+            <input class="check-obs" value="${it.obs||''}" placeholder="Observação…" oninput="updateObs(${it._i},this.value)">
+          </div>
+        </div>
+      `).join('')}
+    </div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+      <button class="btn btn-og" onclick="saveView()">💾 Salvar</button>
+      ${!c.assinado?`<button class="btn btn-green" onclick="assinarChecklist()">✅ Assinar</button>`:'<span class="badge green" style="padding:.4rem .8rem;">✓ Assinado</span>'}
+      <button class="btn btn-danger btn-sm" style="margin-left:auto;" onclick="deleteChecklist()">Excluir</button>
+      <button class="btn btn-outline" onclick="voltarLista()">← Lista</button>
+    </div>
+  `;
+}
+
+function voltarLista(){
+  document.getElementById('tab-btn-vis').style.display='none';
+  const tabEl=document.querySelector('.tab');
+  switchTab('lista',tabEl);
+}
+
+function toggleItem(i){
+  const c=_checklists.find(x=>x.id===_viewId);
+  if(!c)return;
+  const itens=Array.isArray(c.itens)?[...c.itens]:[];
+  if(itens[i]) itens[i]={...itens[i],ok:!itens[i].ok};
+  c.itens=itens;
+  const el=document.getElementById('ci-'+i);
+  if(el) el.className='check-item'+(itens[i]?.ok?' done':'');
+}
+
+function updateObs(i,val){
+  const c=_checklists.find(x=>x.id===_viewId);
+  if(!c||!Array.isArray(c.itens))return;
+  c.itens[i]={...c.itens[i],obs:val};
+}
+
+async function saveView(){
+  const c=_checklists.find(x=>x.id===_viewId);
+  if(!c)return;
+  const{error}=await sb.from('obs_checklists').update({itens:c.itens}).eq('id',_viewId);
+  if(error){toast(error.message,'e');return;}
+  toast('Salvo','s');
+}
+
+async function assinarChecklist(){
+  const c=_checklists.find(x=>x.id===_viewId);
+  if(!c)return;
+  const{error}=await sb.from('obs_checklists').update({itens:c.itens,assinado:true}).eq('id',_viewId);
+  if(error){toast(error.message,'e');return;}
+  c.assinado=true;
+  toast('Checklist assinado','s');
+  renderView(c); updateKPIs(); renderLista();
+}
+
+async function deleteChecklist(){
+  if(!confirm('Excluir este checklist?'))return;
+  const{error}=await sb.from('obs_checklists').delete().eq('id',_viewId);
+  if(error){toast(error.message,'e');return;}
+  toast('Checklist excluído','s');
+  _checklists=_checklists.filter(c=>c.id!==_viewId);
+  voltarLista(); updateKPIs(); renderLista();
+}
+
+// ── MODAL ──────────────────────────────────────────────────────────
+function openModal(){
+  clearForm();
+  document.getElementById('f-data-m').value=new Date().toISOString().split('T')[0];
+  loadTemplate();
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function closeModal(){document.getElementById('modal-overlay').classList.remove('open');}
+function clearForm(){document.getElementById('f-obra-m').value='';document.getElementById('f-tipo-m').value='seguranca';}
+
+function loadTemplate(){
+  const tipo=document.getElementById('f-tipo-m').value;
+  const items=TEMPLATES[tipo]||[];
+  document.getElementById('modal-itens').innerHTML=items.map((desc,i)=>`
+    <div class="check-item" style="border-bottom:1px solid #f1f5f9;">
+      <input type="checkbox" id="m-chk-${i}">
+      <label for="m-chk-${i}" style="font-size:.83rem;">${desc}</label>
+    </div>
+  `).join('');
+}
+
+function addItem(){
+  const container=document.getElementById('modal-itens');
+  const i=container.children.length;
+  const div=document.createElement('div');
+  div.className='check-item';
+  div.style.borderBottom='1px solid #f1f5f9';
+  div.innerHTML=`<input type="checkbox" id="m-chk-${i}"><input type="text" placeholder="Descreva o item…" id="m-desc-${i}" style="flex:1;padding:.3rem .5rem;border:1px solid #e2e8f0;border-radius:.35rem;font-size:.83rem;outline:none;">`;
+  container.appendChild(div);
+}
+
+async function saveChecklist(){
+  const projectId=document.getElementById('f-obra-m').value;
+  const tipo=document.getElementById('f-tipo-m').value;
+  const data=document.getElementById('f-data-m').value;
+  if(!projectId){toast('Selecione a obra','w');return;}
+  const container=document.getElementById('modal-itens');
+  const itens=[];
+  const items=TEMPLATES[tipo]||[];
+  Array.from(container.children).forEach((el,i)=>{
+    const chk=el.querySelector('input[type=checkbox]');
+    const descEl=el.querySelector('input[type=text]');
+    const labelEl=el.querySelector('label');
+    const desc=descEl?descEl.value.trim():(labelEl?labelEl.textContent:items[i]||'');
+    if(desc) itens.push({descricao:desc,ok:chk?.checked||false,obs:''});
+  });
+  const{error}=await sb.from('obs_checklists').insert({project_id:projectId,tipo,data:data||null,itens,assinado:false});
+  if(error){toast(error.message,'e');return;}
+  toast('Checklist criado','s');
+  closeModal(); await loadData();
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────
+function badgeTipo(t){
+  const map={seguranca:'teal',qualidade:'blue',entrega:'orange'};
+  const label={seguranca:'Segurança',qualidade:'Qualidade',entrega:'Entrega'};
+  return `<span class="badge ${map[t]||'gray'}">${label[t]||t}</span>`;
+}
+function fmtDate(d){if(!d)return '—';const dt=new Date(d);return dt.toLocaleDateString('pt-BR');}
+function toast(msg,type=''){const el=document.createElement('div');el.className='toast'+(type?' '+type:'');el.textContent=msg;document.getElementById('toast-area').appendChild(el);setTimeout(()=>el.remove(),3500);}
+
+boot();
+</script>
+</body>
+</html>

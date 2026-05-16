@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Contratos — Obrasul</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+:root{--navy:#0B1D33;--orange:#E87722;--sidebar:220px;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:"Segoe UI",system-ui,sans-serif;background:#f1f5f9;color:#1e293b;}
+#login-overlay{position:fixed;inset:0;z-index:300;background:#0B1D33;display:flex;align-items:center;justify-content:center;}
+.login-card{background:#fff;border-radius:1rem;padding:2.5rem;width:100%;max-width:400px;box-shadow:0 20px 60px #0008;}
+.inp{width:100%;padding:.6rem .85rem;border:1px solid #cbd5e1;border-radius:.5rem;font-size:.9rem;outline:none;}
+.inp:focus{border-color:#E87722;box-shadow:0 0 0 3px #E8772222;}
+.btn-primary{width:100%;background:#E87722;color:#fff;border:none;padding:.7rem;border-radius:.5rem;font-weight:700;cursor:pointer;margin-top:1rem;}
+.sidebar{position:fixed;top:0;left:0;bottom:0;width:var(--sidebar);background:#0B1D33;display:flex;flex-direction:column;z-index:100;overflow-y:auto;transition:.25s;}
+.sidebar.collapsed{width:60px;}
+.sidebar-logo{padding:1rem;border-bottom:1px solid #1e3a5f;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.sidebar-logo img{width:140px;max-width:100%;object-fit:contain;transition:.25s;}
+.sidebar.collapsed .sidebar-logo img{width:32px;}
+.sidebar.collapsed .nav-label,.sidebar.collapsed .nav-item span.lbl,.sidebar.collapsed .sidebar-footer-text{display:none;}
+.sidebar.collapsed .nav-item{justify-content:center;padding:.55rem 0;}
+.nav-section{padding:.5rem 0;flex-shrink:0;}
+.nav-label{font-size:.6rem;font-weight:800;letter-spacing:.12em;color:#475569;padding:.75rem 1rem .25rem;text-transform:uppercase;}
+.nav-item{display:flex;align-items:center;gap:.6rem;padding:.55rem 1rem;font-size:.82rem;color:#94a3b8;cursor:pointer;transition:.15s;border-left:3px solid transparent;text-decoration:none;}
+.nav-item:hover{color:#fff;background:#1e3a5f;}
+.nav-item.active{color:#E87722;border-left-color:#E87722;background:#1e3a5f22;font-weight:600;}
+.nav-item .ic{font-size:1rem;width:1.2rem;text-align:center;flex-shrink:0;}
+.sidebar-footer{margin-top:auto;border-top:1px solid #1e3a5f;padding:.75rem 1rem;flex-shrink:0;}
+.user-info{font-size:.75rem;color:#94a3b8;line-height:1.5;}
+.user-info b{color:#fff;display:block;}
+.btn-logout{width:100%;margin-top:.5rem;background:#1e3a5f;color:#94a3b8;border:none;padding:.4rem;border-radius:.4rem;font-size:.75rem;cursor:pointer;}
+.btn-logout:hover{background:#ef4444;color:#fff;}
+#app{display:none;}
+.main{margin-left:var(--sidebar);min-height:100vh;display:flex;flex-direction:column;transition:.25s;}
+.main.expanded{margin-left:60px;}
+.top-bar{background:#fff;border-bottom:1px solid #e2e8f0;padding:.6rem 1.5rem;display:flex;align-items:center;gap:.75rem;position:sticky;top:0;z-index:50;}
+.top-bar h2{font-size:1rem;font-weight:700;color:#0B1D33;}
+.page-wrap{padding:1.5rem;flex:1;}
+.card{background:#fff;border-radius:.75rem;box-shadow:0 1px 4px #0001;}
+.btn{padding:.4rem .9rem;border-radius:.45rem;font-size:.8rem;font-weight:600;cursor:pointer;border:none;transition:.15s;}
+.btn-og{background:#E87722;color:#fff;}.btn-og:hover{background:#d06918;}
+.btn-outline{background:#fff;color:#374151;border:1px solid #e2e8f0;}.btn-outline:hover{background:#f8fafc;}
+.btn-sm{padding:.3rem .65rem;font-size:.75rem;}
+.btn-danger{background:#fef2f2;color:#dc2626;border:1px solid #fecaca;}.btn-danger:hover{background:#dc2626;color:#fff;}
+.badge{display:inline-block;padding:.15rem .55rem;border-radius:9999px;font-size:.68rem;font-weight:700;}
+.badge.blue{background:#eff6ff;color:#1d4ed8;}.badge.green{background:#f0fdf4;color:#166534;}
+.badge.orange{background:#fff7ed;color:#c2410c;}.badge.gray{background:#f1f5f9;color:#475569;}
+.badge.red{background:#fef2f2;color:#dc2626;}.badge.yellow{background:#fefce8;color:#854d0e;}
+.badge.teal{background:#f0fdfa;color:#0f766e;}.badge.purple{background:#faf5ff;color:#7c3aed;}
+#modal-overlay{position:fixed;inset:0;background:#0006;z-index:200;display:none;align-items:center;justify-content:center;padding:1rem;}
+#modal-overlay.open{display:flex;}
+.modal{background:#fff;border-radius:1rem;width:100%;max-width:680px;max-height:92vh;overflow-y:auto;box-shadow:0 20px 60px #0004;}
+.modal-header{padding:1.1rem 1.4rem;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:1;}
+.modal-header h3{font-size:1rem;font-weight:700;color:#0B1D33;}
+.modal-body{padding:1.2rem 1.4rem;display:flex;flex-direction:column;gap:.85rem;}
+.modal-footer{padding:.9rem 1.4rem;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:.5rem;}
+.field label{display:block;font-size:.78rem;font-weight:600;color:#374151;margin-bottom:.3rem;}
+.field input,.field select,.field textarea{width:100%;padding:.5rem .75rem;border:1px solid #cbd5e1;border-radius:.45rem;font-size:.85rem;outline:none;transition:.15s;}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:#E87722;box-shadow:0 0 0 3px #E8772222;}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;}
+.field-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem;}
+#toast-area{position:fixed;bottom:1.5rem;right:1.5rem;z-index:999;display:flex;flex-direction:column;gap:.5rem;}
+.toast{background:#1e293b;color:#fff;padding:.65rem 1rem;border-radius:.5rem;font-size:.82rem;font-weight:500;box-shadow:0 4px 16px #0004;animation:fadeUp .25s ease;max-width:320px;}
+.toast.s{background:#166634;}.toast.e{background:#dc2626;}.toast.w{background:#92400e;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.tab-bar{display:flex;gap:0;border-bottom:2px solid #e2e8f0;margin-bottom:1.25rem;}
+.tab{padding:.55rem 1.1rem;font-size:.82rem;font-weight:600;color:#64748b;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:.15s;white-space:nowrap;}
+.tab.active{color:#E87722;border-bottom-color:#E87722;}
+.tab-panel{display:none;}.tab-panel.active{display:block;}
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.75rem;margin-bottom:1.5rem;}
+.kpi{background:#fff;border-radius:.75rem;padding:.9rem 1rem;border-left:4px solid #E87722;box-shadow:0 1px 4px #0001;}
+.kpi.green{border-left-color:#22c55e;}.kpi.blue{border-left-color:#3b82f6;}.kpi.yellow{border-left-color:#f59e0b;}
+.kpi.red{border-left-color:#ef4444;}.kpi.teal{border-left-color:#14b8a6;}
+.kpi-label{font-size:.65rem;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+.kpi-value{font-size:1.15rem;font-weight:800;color:#0B1D33;margin:.25rem 0 .1rem;}
+.kpi-sub{font-size:.68rem;color:#94a3b8;}
+.filter-bar{background:#fff;border-radius:.75rem;box-shadow:0 1px 4px #0001;padding:.65rem 1rem;margin-bottom:1rem;display:flex;align-items:center;gap:.65rem;flex-wrap:wrap;}
+.filter-bar input,.filter-bar select{padding:.35rem .6rem;border:1px solid #e2e8f0;border-radius:.4rem;font-size:.78rem;outline:none;color:#374151;}
+table{width:100%;border-collapse:collapse;font-size:.82rem;}
+th{background:#f8fafc;padding:.5rem .85rem;text-align:left;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e2e8f0;}
+td{padding:.55rem .85rem;border-bottom:1px solid #f1f5f9;color:#374151;vertical-align:middle;}
+tr:hover td{background:#fafafa;}
+.alert-banner{background:#fef3c7;border:1px solid #fde68a;border-radius:.65rem;padding:.75rem 1rem;margin-bottom:1rem;display:flex;align-items:center;gap:.5rem;font-size:.82rem;color:#92400e;}
+.section-divider{font-size:.7rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.08em;margin:.75rem 0 .4rem;border-bottom:1px solid #f1f5f9;padding-bottom:.25rem;}
+</style>
+</head>
+<body>
+<div id="login-overlay">
+  <div class="login-card">
+    <div style="text-align:center;margin-bottom:1.5rem;"><img id="li-logo" src="" alt="Obrasul" style="height:50px;object-fit:contain;margin:0 auto;"></div>
+    <div class="field" style="margin-bottom:.75rem;"><label>E-mail</label><input class="inp" type="email" id="li-email" placeholder="seu@email.com"></div>
+    <div class="field" style="margin-bottom:.75rem;"><label>Senha</label><input class="inp" type="password" id="li-pw" placeholder="••••••••"></div>
+    <div id="li-err" style="color:#dc2626;font-size:.8rem;min-height:1.2rem;"></div>
+    <button class="btn-primary" onclick="doLogin()">Entrar</button>
+  </div>
+</div>
+
+<div id="app">
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo"><img id="sb-logo" src="" alt="Obrasul"></div>
+  <div style="padding:.5rem .6rem;border-bottom:1px solid #1e3a5f;flex-shrink:0;">
+    <button onclick="toggleSidebar()" style="width:100%;background:#1e3a5f22;color:#94a3b8;border:none;border-radius:.4rem;padding:.35rem;font-size:.8rem;cursor:pointer;">☰</button>
+  </div>
+  
+  <nav class="nav-section">
+    <div class="nav-label">Principal</div>
+    <a href="index.html" class="nav-item"><span class="ic">🏠</span><span class="lbl">Dashboard</span></a>
+    <a href="clientes.html" class="nav-item"><span class="ic">🏢</span><span class="lbl">Clientes</span></a>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-label">Operações</div>
+    <a href="orcamentos.html" class="nav-item"><span class="ic">📋</span><span class="lbl">Orçamentos</span></a>
+    <a href="obras.html" class="nav-item"><span class="ic">🏗️</span><span class="lbl">Obras</span></a>
+    <a href="financeiro.html" class="nav-item"><span class="ic">💰</span><span class="lbl">Financeiro</span></a>
+    <a href="contratos.html" class="nav-item active"><span class="ic">📄</span><span class="lbl">Contratos</span></a>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-label">Recursos</div>
+    <a href="compras.html" class="nav-item"><span class="ic">🛒</span><span class="lbl">Compras</span></a>
+    <a href="estoque.html" class="nav-item"><span class="ic">📦</span><span class="lbl">Estoque</span></a>
+    <a href="equipe.html" class="nav-item"><span class="ic">👷</span><span class="lbl">Equipe</span></a>
+    <a href="qualidade.html" class="nav-item"><span class="ic">✅</span><span class="lbl">Qualidade</span></a>
+    <a href="garantias.html" class="nav-item"><span class="ic">🛡️</span><span class="lbl">Garantias</span></a>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-label">Comunicação</div>
+    <a href="comunicados.html" class="nav-item"><span class="ic">📢</span><span class="lbl">Comunicados</span></a>
+    <a href="biblioteca.html" class="nav-item"><span class="ic">📚</span><span class="lbl">Biblioteca</span></a>
+    <a href="relatorios.html" class="nav-item"><span class="ic">📊</span><span class="lbl">Relatórios</span></a>
+    <a href="index.html#configuracoes" class="nav-item"><span class="ic">⚙️</span><span class="lbl">Configurações</span></a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="user-info sidebar-footer-text"><b id="sb-user-name">—</b><span id="sb-user-email">—</span></div>
+    <button class="btn-logout" onclick="doLogout()">Sair</button>
+  </div>
+</aside>
+
+<div class="main" id="main">
+  <div class="top-bar">
+    <span style="font-size:1.2rem;">📄</span>
+    <h2>Contratos</h2>
+    <div style="margin-left:auto;display:flex;gap:.5rem;">
+      <button class="btn btn-og btn-sm" onclick="openModal()">+ Novo Contrato</button>
+    </div>
+  </div>
+  <div class="page-wrap">
+    <div id="alert-area"></div>
+    <div class="kpi-row">
+      <div class="kpi"><div class="kpi-label">Total</div><div class="kpi-value" id="k-total">—</div><div class="kpi-sub">contratos</div></div>
+      <div class="kpi green"><div class="kpi-label">Em Vigor</div><div class="kpi-value" id="k-vigor">—</div><div class="kpi-sub">ativos</div></div>
+      <div class="kpi blue"><div class="kpi-label">Valor Total</div><div class="kpi-value" id="k-valor">—</div><div class="kpi-sub">em contratos vigentes</div></div>
+      <div class="kpi yellow"><div class="kpi-label">Vencendo</div><div class="kpi-value" id="k-venc">—</div><div class="kpi-sub">próximos 30 dias</div></div>
+      <div class="kpi teal"><div class="kpi-label">Em Negociação</div><div class="kpi-value" id="k-neg">—</div><div class="kpi-sub">pendentes</div></div>
+    </div>
+
+    <div class="tab-bar">
+      <div class="tab active" onclick="switchTab('todos',this)">Todos</div>
+      <div class="tab" onclick="switchTab('vigor',this)">Em Vigor</div>
+      <div class="tab" onclick="switchTab('vencimentos',this)">Vencimentos</div>
+    </div>
+
+    <div id="tab-todos" class="tab-panel active">
+      <div class="filter-bar">
+        <input type="text" id="f-search" placeholder="Buscar número, objeto, cliente…" style="min-width:200px;" oninput="renderTodos()">
+        <select id="f-status-f" onchange="renderTodos()">
+          <option value="">Todos os status</option>
+          <option value="em_negociacao">Em Negociação</option>
+          <option value="em_vigor">Em Vigor</option>
+          <option value="encerrado">Encerrado</option>
+          <option value="rescindido">Rescindido</option>
+        </select>
+        <select id="f-tipo-f" onchange="renderTodos()">
+          <option value="">Todos os tipos</option>
+          <option value="prestacao_servicos">Prestação de Serviços</option>
+          <option value="fornecimento">Fornecimento</option>
+          <option value="manutencao">Manutenção</option>
+          <option value="outro">Outro</option>
+        </select>
+        <button class="btn btn-outline btn-sm" style="margin-left:auto;" onclick="loadData()">↻</button>
+      </div>
+      <div class="card" style="overflow:auto;">
+        <table><thead><tr>
+          <th>Nº</th><th>Objeto</th><th>Obra / Cliente</th><th>Tipo</th><th>Status</th><th>Valor</th><th>Vigência</th><th></th>
+        </tr></thead><tbody id="tbody-todos"></tbody></table>
+      </div>
+    </div>
+
+    <div id="tab-vigor" class="tab-panel">
+      <div class="card" style="overflow:auto;">
+        <table><thead><tr>
+          <th>Nº</th><th>Objeto</th><th>Obra / Cliente</th><th>Valor</th><th>Início</th><th>Fim</th><th>Dias Restantes</th><th></th>
+        </tr></thead><tbody id="tbody-vigor"></tbody></table>
+      </div>
+    </div>
+
+    <div id="tab-vencimentos" class="tab-panel">
+      <div class="filter-bar">
+        <select id="f-mes-v" onchange="renderVencimentos()">
+          <option value="">Todos os meses</option>
+          <option value="0">Janeiro</option><option value="1">Fevereiro</option><option value="2">Março</option>
+          <option value="3">Abril</option><option value="4">Maio</option><option value="5">Junho</option>
+          <option value="6">Julho</option><option value="7">Agosto</option><option value="8">Setembro</option>
+          <option value="9">Outubro</option><option value="10">Novembro</option><option value="11">Dezembro</option>
+        </select>
+      </div>
+      <div class="card" style="overflow:auto;">
+        <table><thead><tr>
+          <th>Vencimento</th><th>Nº</th><th>Objeto</th><th>Status</th><th>Valor</th><th></th>
+        </tr></thead><tbody id="tbody-venc"></tbody></table>
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<!-- Modal -->
+<div id="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modal-title">Novo Contrato</h3>
+      <button onclick="closeModal()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#64748b;">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="section-divider">Identificação</div>
+      <div class="field-row">
+        <div class="field"><label>Número do Contrato</label><input id="f-num" type="text" placeholder="CT-2025-001"></div>
+        <div class="field"><label>Tipo*</label>
+          <select id="f-tipo-m">
+            <option value="prestacao_servicos">Prestação de Serviços</option>
+            <option value="fornecimento">Fornecimento</option>
+            <option value="manutencao">Manutenção</option>
+            <option value="outro">Outro</option>
+          </select>
+        </div>
+      </div>
+      <div class="field"><label>Objeto do Contrato*</label><input id="f-objeto" type="text" placeholder="Reforma de fachada — Edifício XYZ"></div>
+      <div class="field-row">
+        <div class="field"><label>Obra vinculada</label><select id="f-obra-m"><option value="">Nenhuma</option></select></div>
+        <div class="field"><label>Status*</label>
+          <select id="f-status-m">
+            <option value="em_negociacao">Em Negociação</option>
+            <option value="em_vigor">Em Vigor</option>
+            <option value="encerrado">Encerrado</option>
+            <option value="rescindido">Rescindido</option>
+          </select>
+        </div>
+      </div>
+      <div class="section-divider">Financeiro & Prazo</div>
+      <div class="field-row">
+        <div class="field"><label>Valor Total (R$)</label><input id="f-valor-m" type="number" step="0.01" placeholder="0,00"></div>
+        <div class="field"><label>Data de Assinatura</label><input id="f-assinatura" type="date"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Início da Vigência</label><input id="f-inicio" type="date"></div>
+        <div class="field"><label>Fim da Vigência</label><input id="f-fim" type="date"></div>
+      </div>
+      <div class="section-divider">Partes & Condições</div>
+      <div class="field"><label>Contratante (cliente)</label><input id="f-contratante" type="text" placeholder="Condomínio Edifício XYZ"></div>
+      <div class="field"><label>Condições de Pagamento</label><input id="f-pagamento" type="text" placeholder="30% entrada + parcelas mensais…"></div>
+      <div class="field"><label>Penalidades / Multas</label><textarea id="f-penalidades" rows="2" placeholder="Ex: 2% ao mês por atraso…"></textarea></div>
+      <div class="field"><label>Observações</label><textarea id="f-obs-m" rows="2" placeholder="Informações relevantes sobre o contrato…"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger btn-sm" id="btn-del" style="margin-right:auto;display:none;" onclick="deleteContrato()">Excluir</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-og" onclick="saveContrato()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-area"></div>
+
+<script>
+const SB_URL='https://jmjbdundgbbefvhvyffb.supabase.co';
+const SB_KEY='sb_publishable_CeLpQY1DjpWfv8U2lSMmew_Uqq6OchZ';
+const sb=supabase.createClient(SB_URL,SB_KEY);
+let _contratos=[], _obras=[], _editId=null;
+
+async function boot(){
+  const logo=await getLogoUrl();
+  document.getElementById('li-logo').src=logo;
+  document.getElementById('sb-logo').src=logo;
+  const{data:{session}}=await sb.auth.getSession();
+  if(session) await enterApp(session.user);
+}
+async function getLogoUrl(){try{const{data}=sb.storage.from('logos').getPublicUrl('obrasul-logo.png');return data.publicUrl;}catch(e){return '';}}
+async function doLogin(){
+  const email=document.getElementById('li-email').value.trim(),pw=document.getElementById('li-pw').value;
+  document.getElementById('li-err').textContent='';
+  const{data,error}=await sb.auth.signInWithPassword({email,password:pw});
+  if(error){document.getElementById('li-err').textContent=error.message;return;}
+  await enterApp(data.user);
+}
+async function enterApp(user){
+  document.getElementById('sb-user-email').textContent=user.email;
+  const{data:p}=await sb.from('obs_perfis').select('nome_completo').eq('id',user.id).single();
+  document.getElementById('sb-user-name').textContent=p?.nome_completo||user.email;
+  document.getElementById('login-overlay').style.display='none';
+  document.getElementById('app').style.display='block';
+  await loadData();
+}
+async function doLogout(){await sb.auth.signOut();location.reload();}
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('collapsed');document.getElementById('main').classList.toggle('expanded');}
+function switchTab(id,el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');document.getElementById('tab-'+id).classList.add('active');
+  if(id==='vigor') renderVigor();
+  if(id==='vencimentos') renderVencimentos();
+}
+
+async function loadData(){
+  const[{data:ct},{data:ob}]=await Promise.all([
+    sb.from('obs_contracts').select('*, obs_projects(nome, obs_clients(nome))').order('created_at',{ascending:false}),
+    sb.from('obs_projects').select('id,nome').order('nome')
+  ]);
+  _contratos=ct||[]; _obras=ob||[];
+  document.getElementById('f-obra-m').innerHTML='<option value="">Nenhuma</option>'+_obras.map(o=>`<option value="${o.id}">${o.nome}</option>`).join('');
+  updateKPIs(); checkAlerts(); renderTodos();
+}
+
+function updateKPIs(){
+  const hoje=new Date().toISOString().split('T')[0];
+  const em30=new Date(Date.now()+30*24*3600*1000).toISOString().split('T')[0];
+  const vigor=_contratos.filter(c=>c.status==='em_vigor');
+  document.getElementById('k-total').textContent=_contratos.length;
+  document.getElementById('k-vigor').textContent=vigor.length;
+  const val=vigor.reduce((s,c)=>s+(c.valor||0),0);
+  document.getElementById('k-valor').textContent='R$ '+val.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0});
+  document.getElementById('k-venc').textContent=_contratos.filter(c=>c.status==='em_vigor'&&c.data_fim&&c.data_fim<=em30).length;
+  document.getElementById('k-neg').textContent=_contratos.filter(c=>c.status==='em_negociacao').length;
+}
+
+function checkAlerts(){
+  const hoje=new Date().toISOString().split('T')[0];
+  const em30=new Date(Date.now()+30*24*3600*1000).toISOString().split('T')[0];
+  const venc=_contratos.filter(c=>c.status==='em_vigor'&&c.data_fim&&c.data_fim<=em30);
+  const area=document.getElementById('alert-area');
+  if(!venc.length){area.innerHTML='';return;}
+  const vencidos=venc.filter(c=>c.data_fim<hoje).length;
+  area.innerHTML=`<div class="alert-banner">⚠️ ${vencidos?`<strong>${vencidos} contrato(s) vencido(s)</strong>. `:''} ${venc.length-vencidos} contrato(s) vencem nos próximos 30 dias.</div>`;
+}
+
+function contratoMeta(c){
+  const obraNome=c.obs_projects?.nome||'—';
+  const clienteNome=c.obs_projects?.obs_clients?.nome||'';
+  return clienteNome?`${obraNome} · ${clienteNome}`:obraNome;
+}
+
+function diasRestantes(fim){
+  if(!fim)return null;
+  const diff=new Date(fim)-new Date();
+  return Math.ceil(diff/(1000*60*60*24));
+}
+
+function renderTodos(){
+  const s=document.getElementById('f-search').value.toLowerCase();
+  const st=document.getElementById('f-status-f').value;
+  const tp=document.getElementById('f-tipo-f').value;
+  let list=_contratos;
+  if(s) list=list.filter(c=>(c.numero||'').toLowerCase().includes(s)||(c.objeto||'').toLowerCase().includes(s)||(c.contratante||'').toLowerCase().includes(s)||(c.obs_projects?.nome||'').toLowerCase().includes(s));
+  if(st) list=list.filter(c=>c.status===st);
+  if(tp) list=list.filter(c=>c.tipo===tp);
+  const tbody=document.getElementById('tbody-todos');
+  if(!list.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:2rem;">Nenhum contrato encontrado.</td></tr>';return;}
+  tbody.innerHTML=list.map(c=>`<tr>
+    <td style="font-weight:700;color:#0B1D33;">${c.numero||'—'}</td>
+    <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.objeto||'—'}</td>
+    <td style="font-size:.78rem;">${contratoMeta(c)}</td>
+    <td>${badgeTipo(c.tipo)}</td>
+    <td>${badgeStatus(c.status)}</td>
+    <td>R$ ${(c.valor||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+    <td style="font-size:.78rem;">${c.data_inicio?fmtDate(c.data_inicio):'—'} → ${c.data_fim?fmtDate(c.data_fim):'—'}</td>
+    <td><button class="btn btn-outline btn-sm" onclick="editContrato('${c.id}')">✏️</button></td>
+  </tr>`).join('');
+}
+
+function renderVigor(){
+  const list=_contratos.filter(c=>c.status==='em_vigor');
+  const tbody=document.getElementById('tbody-vigor');
+  if(!list.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:2rem;">Nenhum contrato em vigor.</td></tr>';return;}
+  tbody.innerHTML=list.map(c=>{
+    const dias=diasRestantes(c.data_fim);
+    const diasCor=dias===null?'#374151':dias<0?'#dc2626':dias<30?'#92400e':'#374151';
+    return `<tr>
+      <td style="font-weight:700;color:#0B1D33;">${c.numero||'—'}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.objeto||'—'}</td>
+      <td style="font-size:.78rem;">${contratoMeta(c)}</td>
+      <td>R$ ${(c.valor||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+      <td>${c.data_inicio?fmtDate(c.data_inicio):'—'}</td>
+      <td>${c.data_fim?fmtDate(c.data_fim):'—'}</td>
+      <td style="font-weight:700;color:${diasCor};">${dias===null?'—':dias<0?`${Math.abs(dias)}d vencido`:`${dias}d`}</td>
+      <td><button class="btn btn-outline btn-sm" onclick="editContrato('${c.id}')">✏️</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderVencimentos(){
+  const mes=document.getElementById('f-mes-v').value;
+  let list=_contratos.filter(c=>c.data_fim);
+  if(mes!=='') list=list.filter(c=>{const d=new Date(c.data_fim);return d.getMonth()===parseInt(mes);});
+  list.sort((a,b)=>new Date(a.data_fim)-new Date(b.data_fim));
+  const tbody=document.getElementById('tbody-venc');
+  if(!list.length){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:2rem;">Nenhum vencimento encontrado.</td></tr>';return;}
+  tbody.innerHTML=list.map(c=>`<tr>
+    <td style="font-weight:700;">${fmtDate(c.data_fim)}</td>
+    <td>${c.numero||'—'}</td>
+    <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.objeto||'—'}</td>
+    <td>${badgeStatus(c.status)}</td>
+    <td>R$ ${(c.valor||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+    <td><button class="btn btn-outline btn-sm" onclick="editContrato('${c.id}')">✏️</button></td>
+  </tr>`).join('');
+}
+
+// ── MODAL ──────────────────────────────────────────────────────────
+function openModal(){
+  _editId=null;
+  document.getElementById('modal-title').textContent='Novo Contrato';
+  document.getElementById('btn-del').style.display='none';
+  clearForm();
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function editContrato(id){
+  const c=_contratos.find(x=>x.id===id);if(!c)return;
+  _editId=id;
+  document.getElementById('modal-title').textContent='Editar Contrato';
+  document.getElementById('btn-del').style.display='block';
+  document.getElementById('f-num').value=c.numero||'';
+  document.getElementById('f-tipo-m').value=c.tipo||'prestacao_servicos';
+  document.getElementById('f-objeto').value=c.objeto||'';
+  document.getElementById('f-obra-m').value=c.project_id||'';
+  document.getElementById('f-status-m').value=c.status||'em_negociacao';
+  document.getElementById('f-valor-m').value=c.valor||'';
+  document.getElementById('f-assinatura').value=c.data_assinatura||'';
+  document.getElementById('f-inicio').value=c.data_inicio||'';
+  document.getElementById('f-fim').value=c.data_fim||'';
+  document.getElementById('f-contratante').value=c.contratante||'';
+  document.getElementById('f-pagamento').value=c.condicoes_pagamento||'';
+  document.getElementById('f-penalidades').value=c.penalidades||'';
+  document.getElementById('f-obs-m').value=c.observacoes||'';
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function closeModal(){document.getElementById('modal-overlay').classList.remove('open');}
+function clearForm(){
+  ['f-num','f-objeto','f-valor-m','f-assinatura','f-inicio','f-fim','f-contratante','f-pagamento','f-penalidades','f-obs-m'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-tipo-m').value='prestacao_servicos';
+  document.getElementById('f-status-m').value='em_negociacao';
+  document.getElementById('f-obra-m').value='';
+}
+async function saveContrato(){
+  const objeto=document.getElementById('f-objeto').value.trim();
+  if(!objeto){toast('Objeto obrigatório','w');return;}
+  const payload={
+    numero:document.getElementById('f-num').value.trim(),
+    tipo:document.getElementById('f-tipo-m').value,
+    objeto,
+    project_id:document.getElementById('f-obra-m').value||null,
+    status:document.getElementById('f-status-m').value,
+    valor:parseFloat(document.getElementById('f-valor-m').value)||0,
+    data_assinatura:document.getElementById('f-assinatura').value||null,
+    data_inicio:document.getElementById('f-inicio').value||null,
+    data_fim:document.getElementById('f-fim').value||null,
+    contratante:document.getElementById('f-contratante').value.trim(),
+    condicoes_pagamento:document.getElementById('f-pagamento').value.trim(),
+    penalidades:document.getElementById('f-penalidades').value.trim(),
+    observacoes:document.getElementById('f-obs-m').value.trim()
+  };
+  let error;
+  if(_editId){({error}=await sb.from('obs_contracts').update(payload).eq('id',_editId));}
+  else{({error}=await sb.from('obs_contracts').insert(payload));}
+  if(error){toast(error.message,'e');return;}
+  toast(_editId?'Contrato atualizado':'Contrato registrado','s');
+  closeModal();await loadData();
+}
+async function deleteContrato(){
+  if(!confirm('Excluir este contrato?'))return;
+  const{error}=await sb.from('obs_contracts').delete().eq('id',_editId);
+  if(error){toast(error.message,'e');return;}
+  toast('Contrato excluído','s');closeModal();await loadData();
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────
+function badgeTipo(t){
+  const map={prestacao_servicos:'blue',fornecimento:'teal',manutencao:'orange',outro:'gray'};
+  const label={prestacao_servicos:'Serviços',fornecimento:'Fornecimento',manutencao:'Manutenção',outro:'Outro'};
+  return `<span class="badge ${map[t]||'gray'}">${label[t]||t}</span>`;
+}
+function badgeStatus(s){
+  const map={em_negociacao:'yellow',em_vigor:'green',encerrado:'gray',rescindido:'red'};
+  const label={em_negociacao:'Em Negociação',em_vigor:'Em Vigor',encerrado:'Encerrado',rescindido:'Rescindido'};
+  return `<span class="badge ${map[s]||'gray'}">${label[s]||s}</span>`;
+}
+function fmtDate(d){if(!d)return '—';const[y,m,day]=d.split('-');return `${day}/${m}/${y}`;}
+function toast(msg,type=''){const el=document.createElement('div');el.className='toast'+(type?' '+type:'');el.textContent=msg;document.getElementById('toast-area').appendChild(el);setTimeout(()=>el.remove(),3500);}
+
+boot();
+</script>
+</body>
+</html>

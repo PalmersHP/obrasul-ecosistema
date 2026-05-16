@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Clientes — Obrasul</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+:root{--navy:#0B1D33;--orange:#E87722;--sidebar:220px;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:"Segoe UI",system-ui,sans-serif;background:#f1f5f9;color:#1e293b;}
+#login-overlay{position:fixed;inset:0;z-index:300;background:#0B1D33;display:flex;align-items:center;justify-content:center;}
+.login-card{background:#fff;border-radius:1rem;padding:2.5rem;width:100%;max-width:400px;box-shadow:0 20px 60px #0008;}
+.inp{width:100%;padding:.6rem .85rem;border:1px solid #cbd5e1;border-radius:.5rem;font-size:.9rem;outline:none;}
+.inp:focus{border-color:#E87722;box-shadow:0 0 0 3px #E8772222;}
+.btn-primary{width:100%;background:#E87722;color:#fff;border:none;padding:.7rem;border-radius:.5rem;font-weight:700;cursor:pointer;margin-top:1rem;}
+.sidebar{position:fixed;top:0;left:0;bottom:0;width:var(--sidebar);background:#0B1D33;display:flex;flex-direction:column;z-index:100;overflow-y:auto;transition:.25s;}
+.sidebar.collapsed{width:60px;}
+.sidebar-logo{padding:1rem;border-bottom:1px solid #1e3a5f;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.sidebar-logo img{width:140px;max-width:100%;object-fit:contain;transition:.25s;}
+.sidebar.collapsed .sidebar-logo img{width:32px;}
+.sidebar.collapsed .nav-label,.sidebar.collapsed .nav-item span.lbl,.sidebar.collapsed .sidebar-footer-text{display:none;}
+.sidebar.collapsed .nav-item{justify-content:center;padding:.55rem 0;}
+.nav-section{padding:.5rem 0;flex-shrink:0;}
+.nav-label{font-size:.6rem;font-weight:800;letter-spacing:.12em;color:#475569;padding:.75rem 1rem .25rem;text-transform:uppercase;}
+.nav-item{display:flex;align-items:center;gap:.6rem;padding:.55rem 1rem;font-size:.82rem;color:#94a3b8;cursor:pointer;transition:.15s;border-left:3px solid transparent;text-decoration:none;}
+.nav-item:hover{color:#fff;background:#1e3a5f;}
+.nav-item.active{color:#E87722;border-left-color:#E87722;background:#1e3a5f22;font-weight:600;}
+.nav-item .ic{font-size:1rem;width:1.2rem;text-align:center;flex-shrink:0;}
+.sidebar-footer{margin-top:auto;border-top:1px solid #1e3a5f;padding:.75rem 1rem;flex-shrink:0;}
+.user-info{font-size:.75rem;color:#94a3b8;line-height:1.5;}
+.user-info b{color:#fff;display:block;}
+.btn-logout{width:100%;margin-top:.5rem;background:#1e3a5f;color:#94a3b8;border:none;padding:.4rem;border-radius:.4rem;font-size:.75rem;cursor:pointer;}
+.btn-logout:hover{background:#ef4444;color:#fff;}
+#app{display:none;}
+.main{margin-left:var(--sidebar);min-height:100vh;display:flex;flex-direction:column;transition:.25s;}
+.main.expanded{margin-left:60px;}
+.top-bar{background:#fff;border-bottom:1px solid #e2e8f0;padding:.6rem 1.5rem;display:flex;align-items:center;gap:.75rem;position:sticky;top:0;z-index:50;}
+.top-bar h2{font-size:1rem;font-weight:700;color:#0B1D33;}
+.page-wrap{padding:1.5rem;flex:1;}
+.card{background:#fff;border-radius:.75rem;box-shadow:0 1px 4px #0001;}
+.btn{padding:.4rem .9rem;border-radius:.45rem;font-size:.8rem;font-weight:600;cursor:pointer;border:none;transition:.15s;}
+.btn-og{background:#E87722;color:#fff;}.btn-og:hover{background:#d06918;}
+.btn-outline{background:#fff;color:#374151;border:1px solid #e2e8f0;}.btn-outline:hover{background:#f8fafc;}
+.btn-sm{padding:.3rem .65rem;font-size:.75rem;}
+.btn-danger{background:#fef2f2;color:#dc2626;border:1px solid #fecaca;}.btn-danger:hover{background:#dc2626;color:#fff;}
+.btn-green{background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;}.btn-green:hover{background:#166534;color:#fff;}
+.badge{display:inline-block;padding:.15rem .55rem;border-radius:9999px;font-size:.68rem;font-weight:700;}
+.badge.blue{background:#eff6ff;color:#1d4ed8;}.badge.green{background:#f0fdf4;color:#166534;}
+.badge.orange{background:#fff7ed;color:#c2410c;}.badge.gray{background:#f1f5f9;color:#475569;}
+.badge.red{background:#fef2f2;color:#dc2626;}.badge.teal{background:#f0fdfa;color:#0f766e;}
+#modal-overlay{position:fixed;inset:0;background:#0006;z-index:200;display:none;align-items:center;justify-content:center;padding:1rem;}
+#modal-overlay.open{display:flex;}
+.modal{background:#fff;border-radius:1rem;width:100%;max-width:660px;max-height:92vh;overflow-y:auto;box-shadow:0 20px 60px #0004;}
+.modal-header{padding:1.1rem 1.4rem;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:1;}
+.modal-header h3{font-size:1rem;font-weight:700;color:#0B1D33;}
+.modal-body{padding:1.2rem 1.4rem;display:flex;flex-direction:column;gap:.85rem;}
+.modal-footer{padding:.9rem 1.4rem;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:.5rem;}
+.field label{display:block;font-size:.78rem;font-weight:600;color:#374151;margin-bottom:.3rem;}
+.field input,.field select,.field textarea{width:100%;padding:.5rem .75rem;border:1px solid #cbd5e1;border-radius:.45rem;font-size:.85rem;outline:none;transition:.15s;}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:#E87722;box-shadow:0 0 0 3px #E8772222;}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;}
+.field-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem;}
+#toast-area{position:fixed;bottom:1.5rem;right:1.5rem;z-index:999;display:flex;flex-direction:column;gap:.5rem;}
+.toast{background:#1e293b;color:#fff;padding:.65rem 1rem;border-radius:.5rem;font-size:.82rem;font-weight:500;box-shadow:0 4px 16px #0004;animation:fadeUp .25s ease;max-width:320px;}
+.toast.s{background:#166534;}.toast.e{background:#dc2626;}.toast.w{background:#92400e;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.tab-bar{display:flex;gap:0;border-bottom:2px solid #e2e8f0;margin-bottom:1.25rem;}
+.tab{padding:.55rem 1.1rem;font-size:.82rem;font-weight:600;color:#64748b;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:.15s;white-space:nowrap;}
+.tab.active{color:#E87722;border-bottom-color:#E87722;}
+.tab-panel{display:none;}.tab-panel.active{display:block;}
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.75rem;margin-bottom:1.5rem;}
+.kpi{background:#fff;border-radius:.75rem;padding:.9rem 1rem;border-left:4px solid #E87722;box-shadow:0 1px 4px #0001;}
+.kpi.green{border-left-color:#22c55e;}.kpi.blue{border-left-color:#3b82f6;}.kpi.teal{border-left-color:#14b8a6;}
+.kpi-label{font-size:.65rem;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+.kpi-value{font-size:1.15rem;font-weight:800;color:#0B1D33;margin:.25rem 0 .1rem;}
+.kpi-sub{font-size:.68rem;color:#94a3b8;}
+.filter-bar{background:#fff;border-radius:.75rem;box-shadow:0 1px 4px #0001;padding:.65rem 1rem;margin-bottom:1rem;display:flex;align-items:center;gap:.65rem;flex-wrap:wrap;}
+.filter-bar input,.filter-bar select{padding:.35rem .6rem;border:1px solid #e2e8f0;border-radius:.4rem;font-size:.78rem;outline:none;color:#374151;}
+.filter-bar input:focus,.filter-bar select:focus{border-color:#E87722;}
+table{width:100%;border-collapse:collapse;font-size:.82rem;}
+th{background:#f8fafc;padding:.5rem .85rem;text-align:left;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e2e8f0;}
+td{padding:.55rem .85rem;border-bottom:1px solid #f1f5f9;color:#374151;vertical-align:middle;}
+tr:hover td{background:#fafafa;}
+.client-card{background:#fff;border:1px solid #e2e8f0;border-radius:.65rem;padding:1rem;cursor:pointer;transition:.15s;}
+.client-card:hover{border-color:#E87722;box-shadow:0 2px 8px #E8772211;}
+.client-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:.75rem;}
+.avatar-sq{width:44px;height:44px;border-radius:.5rem;background:#0B1D33;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1rem;flex-shrink:0;}
+.section-divider{font-size:.7rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.08em;margin:.75rem 0 .4rem;border-bottom:1px solid #f1f5f9;padding-bottom:.25rem;}
+</style>
+</head>
+<body>
+<div id="login-overlay">
+  <div class="login-card">
+    <div style="text-align:center;margin-bottom:1.5rem;"><img id="li-logo" src="" alt="Obrasul" style="height:50px;object-fit:contain;margin:0 auto;"></div>
+    <div class="field" style="margin-bottom:.75rem;"><label>E-mail</label><input class="inp" type="email" id="li-email" placeholder="seu@email.com"></div>
+    <div class="field" style="margin-bottom:.75rem;"><label>Senha</label><input class="inp" type="password" id="li-pw" placeholder="••••••••"></div>
+    <div id="li-err" style="color:#dc2626;font-size:.8rem;min-height:1.2rem;margin-top:.25rem;"></div>
+    <button class="btn-primary" onclick="doLogin()">Entrar</button>
+  </div>
+</div>
+
+<div id="app">
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo"><img id="sb-logo" src="" alt="Obrasul"></div>
+  <div style="padding:.5rem .6rem;border-bottom:1px solid #1e3a5f;flex-shrink:0;">
+    <button onclick="toggleSidebar()" style="width:100%;background:#1e3a5f22;color:#94a3b8;border:none;border-radius:.4rem;padding:.35rem;font-size:.8rem;cursor:pointer;">☰</button>
+  </div>
+  
+  <nav class="nav-section">
+    <div class="nav-label">Principal</div>
+    <a href="index.html" class="nav-item"><span class="ic">🏠</span><span class="lbl">Dashboard</span></a>
+    <a href="clientes.html" class="nav-item active"><span class="ic">🏢</span><span class="lbl">Clientes</span></a>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-label">Operações</div>
+    <a href="orcamentos.html" class="nav-item"><span class="ic">📋</span><span class="lbl">Orçamentos</span></a>
+    <a href="obras.html" class="nav-item"><span class="ic">🏗️</span><span class="lbl">Obras</span></a>
+    <a href="financeiro.html" class="nav-item"><span class="ic">💰</span><span class="lbl">Financeiro</span></a>
+    <a href="contratos.html" class="nav-item"><span class="ic">📄</span><span class="lbl">Contratos</span></a>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-label">Recursos</div>
+    <a href="compras.html" class="nav-item"><span class="ic">🛒</span><span class="lbl">Compras</span></a>
+    <a href="estoque.html" class="nav-item"><span class="ic">📦</span><span class="lbl">Estoque</span></a>
+    <a href="equipe.html" class="nav-item"><span class="ic">👷</span><span class="lbl">Equipe</span></a>
+    <a href="qualidade.html" class="nav-item"><span class="ic">✅</span><span class="lbl">Qualidade</span></a>
+    <a href="garantias.html" class="nav-item"><span class="ic">🛡️</span><span class="lbl">Garantias</span></a>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-label">Comunicação</div>
+    <a href="comunicados.html" class="nav-item"><span class="ic">📢</span><span class="lbl">Comunicados</span></a>
+    <a href="biblioteca.html" class="nav-item"><span class="ic">📚</span><span class="lbl">Biblioteca</span></a>
+    <a href="relatorios.html" class="nav-item"><span class="ic">📊</span><span class="lbl">Relatórios</span></a>
+    <a href="index.html#configuracoes" class="nav-item"><span class="ic">⚙️</span><span class="lbl">Configurações</span></a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="user-info sidebar-footer-text"><b id="sb-user-name">—</b><span id="sb-user-email">—</span></div>
+    <button class="btn-logout" onclick="doLogout()">Sair</button>
+  </div>
+</aside>
+
+<div class="main" id="main">
+  <div class="top-bar">
+    <span style="font-size:1.2rem;">🏢</span>
+    <h2>Clientes</h2>
+    <div style="margin-left:auto;display:flex;gap:.5rem;">
+      <button class="btn btn-og btn-sm" onclick="openModal()">+ Novo Cliente</button>
+    </div>
+  </div>
+  <div class="page-wrap">
+    <div class="kpi-row">
+      <div class="kpi"><div class="kpi-label">Total</div><div class="kpi-value" id="k-total">—</div><div class="kpi-sub">clientes ativos</div></div>
+      <div class="kpi blue"><div class="kpi-label">Condomínios</div><div class="kpi-value" id="k-cond">—</div><div class="kpi-sub">cadastrados</div></div>
+      <div class="kpi teal"><div class="kpi-label">Pessoa Jurídica</div><div class="kpi-value" id="k-pj">—</div><div class="kpi-sub">empresas</div></div>
+      <div class="kpi green"><div class="kpi-label">Obras Ativas</div><div class="kpi-value" id="k-obras">—</div><div class="kpi-sub">em andamento</div></div>
+      <div class="kpi"><div class="kpi-label">Receita Total</div><div class="kpi-value" id="k-receita">—</div><div class="kpi-sub">em contratos</div></div>
+    </div>
+
+    <div class="tab-bar">
+      <div class="tab active" onclick="switchTab('lista',this)">Lista</div>
+      <div class="tab" onclick="switchTab('cards',this)">Cartões</div>
+      <div class="tab" onclick="switchTab('inativos',this)">Inativos</div>
+    </div>
+
+    <div id="tab-lista" class="tab-panel active">
+      <div class="filter-bar">
+        <input type="text" id="f-search" placeholder="Buscar nome, síndico, CNPJ…" style="min-width:200px;" oninput="renderLista()">
+        <select id="f-tipo" onchange="renderLista()">
+          <option value="">Todos os tipos</option>
+          <option value="condominio">Condomínio</option>
+          <option value="pessoa_juridica">Pessoa Jurídica</option>
+          <option value="pessoa_fisica">Pessoa Física</option>
+        </select>
+        <select id="f-estado" onchange="renderLista()"><option value="">Todos os estados</option></select>
+        <button class="btn btn-outline btn-sm" style="margin-left:auto;" onclick="loadData()">↻</button>
+      </div>
+      <div class="card" style="overflow:auto;">
+        <table><thead><tr>
+          <th>Cliente</th><th>Tipo</th><th>Síndico / Resp.</th><th>Cidade</th><th>Obras</th><th>Receita</th><th></th>
+        </tr></thead><tbody id="tbody-lista"></tbody></table>
+      </div>
+    </div>
+
+    <div id="tab-cards" class="tab-panel">
+      <div class="filter-bar">
+        <input type="text" id="f-search-cards" placeholder="Buscar…" style="min-width:200px;" oninput="renderCards()">
+      </div>
+      <div id="client-cards" class="client-grid"></div>
+    </div>
+
+    <div id="tab-inativos" class="tab-panel">
+      <div class="card" style="overflow:auto;">
+        <table><thead><tr><th>Cliente</th><th>Tipo</th><th>Cidade</th><th>Observações</th><th></th></tr></thead>
+        <tbody id="tbody-inativos"></tbody></table>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- Drawer detalhe do cliente -->
+<div id="drawer-overlay" style="display:none;position:fixed;inset:0;z-index:150;" onclick="closeDrawer()"></div>
+<div id="client-drawer" style="position:fixed;top:0;right:0;bottom:0;width:420px;background:#fff;box-shadow:-4px 0 24px #0002;z-index:151;overflow-y:auto;transform:translateX(100%);transition:.3s;padding:1.25rem;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+    <h3 id="drawer-title" style="font-size:1rem;font-weight:700;color:#0B1D33;"></h3>
+    <button onclick="closeDrawer()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#64748b;">✕</button>
+  </div>
+  <div id="drawer-body"></div>
+</div>
+
+<!-- Modal -->
+<div id="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modal-title">Novo Cliente</h3>
+      <button onclick="closeModal()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#64748b;">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="section-divider">Dados Principais</div>
+      <div class="field-row">
+        <div class="field"><label>Nome*</label><input id="f-nome" type="text" placeholder="Condomínio Edifício XYZ"></div>
+        <div class="field"><label>Tipo*</label>
+          <select id="f-tipo-m">
+            <option value="condominio">Condomínio</option>
+            <option value="pessoa_juridica">Pessoa Jurídica</option>
+            <option value="pessoa_fisica">Pessoa Física</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>CNPJ / CPF</label><input id="f-cnpj" type="text" placeholder="00.000.000/0000-00"></div>
+        <div class="field"><label>Administradora</label><input id="f-admin" type="text" placeholder="Nome da administradora"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Andares</label><input id="f-andares" type="number" placeholder="0"></div>
+        <div class="field"><label>Unidades</label><input id="f-unidades" type="number" placeholder="0"></div>
+      </div>
+      <div class="section-divider">Síndico / Responsável</div>
+      <div class="field"><label>Nome do Síndico</label><input id="f-sindico" type="text" placeholder="João da Silva"></div>
+      <div class="field-row">
+        <div class="field"><label>E-mail</label><input id="f-email-s" type="email" placeholder="sindico@email.com"></div>
+        <div class="field"><label>Telefone</label><input id="f-tel-s" type="text" placeholder="(11) 9 0000-0000"></div>
+      </div>
+      <div class="section-divider">Endereço</div>
+      <div class="field"><label>Endereço</label><input id="f-end" type="text" placeholder="Rua, nº, complemento"></div>
+      <div class="field-row3">
+        <div class="field"><label>Cidade</label><input id="f-cidade" type="text" placeholder="São Paulo"></div>
+        <div class="field"><label>Estado</label><input id="f-estado-m" type="text" placeholder="SP" maxlength="2"></div>
+        <div class="field"><label>CEP</label><input id="f-cep" type="text" placeholder="00000-000"></div>
+      </div>
+      <div class="section-divider">Comercial</div>
+      <div class="field"><label>Tipo de Serviço de Interesse</label><input id="f-servico" type="text" placeholder="Fachada, impermeabilização…"></div>
+      <div class="field"><label>Observações</label><textarea id="f-obs" rows="2" placeholder="Informações adicionais…"></textarea></div>
+      <div class="field" style="display:flex;align-items:center;gap:.5rem;">
+        <input type="checkbox" id="f-ativo" checked>
+        <label for="f-ativo" style="font-size:.82rem;font-weight:600;cursor:pointer;">Cliente ativo</label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger btn-sm" id="btn-del" style="margin-right:auto;display:none;" onclick="deleteClient()">Excluir</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-og" onclick="saveClient()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-area"></div>
+
+<script>
+const SB_URL='https://jmjbdundgbbefvhvyffb.supabase.co';
+const SB_KEY='sb_publishable_CeLpQY1DjpWfv8U2lSMmew_Uqq6OchZ';
+const sb=supabase.createClient(SB_URL,SB_KEY);
+let _clients=[], _projects=[], _editId=null;
+
+async function boot(){
+  const logo=await getLogoUrl();
+  document.getElementById('li-logo').src=logo;
+  document.getElementById('sb-logo').src=logo;
+  const{data:{session}}=await sb.auth.getSession();
+  if(session) await enterApp(session.user);
+}
+async function getLogoUrl(){try{const{data}=sb.storage.from('logos').getPublicUrl('obrasul-logo.png');return data.publicUrl;}catch(e){return '';}}
+async function doLogin(){
+  const email=document.getElementById('li-email').value.trim(),pw=document.getElementById('li-pw').value;
+  document.getElementById('li-err').textContent='';
+  const{data,error}=await sb.auth.signInWithPassword({email,password:pw});
+  if(error){document.getElementById('li-err').textContent=error.message;return;}
+  await enterApp(data.user);
+}
+async function enterApp(user){
+  document.getElementById('sb-user-email').textContent=user.email;
+  const{data:p}=await sb.from('obs_perfis').select('nome_completo').eq('id',user.id).single();
+  document.getElementById('sb-user-name').textContent=p?.nome_completo||user.email;
+  document.getElementById('login-overlay').style.display='none';
+  document.getElementById('app').style.display='block';
+  await loadData();
+}
+async function doLogout(){await sb.auth.signOut();location.reload();}
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('collapsed');document.getElementById('main').classList.toggle('expanded');}
+function switchTab(id,el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');document.getElementById('tab-'+id).classList.add('active');
+  if(id==='cards') renderCards();
+  if(id==='inativos') renderInativos();
+}
+
+async function loadData(){
+  const[{data:cl},{data:pr}]=await Promise.all([
+    sb.from('obs_clients').select('*').order('nome'),
+    sb.from('obs_projects').select('id,nome,client_id,status,valor_contrato')
+  ]);
+  _clients=cl||[]; _projects=pr||[];
+  const estados=[...new Set(_clients.map(c=>c.estado).filter(Boolean))].sort();
+  document.getElementById('f-estado').innerHTML='<option value="">Todos os estados</option>'+estados.map(e=>`<option>${e}</option>`).join('');
+  updateKPIs(); renderLista();
+}
+
+function clientObras(id){return _projects.filter(p=>p.client_id===id);}
+
+function updateKPIs(){
+  const ativos=_clients.filter(c=>c.ativo);
+  document.getElementById('k-total').textContent=ativos.length;
+  document.getElementById('k-cond').textContent=ativos.filter(c=>c.tipo==='condominio').length;
+  document.getElementById('k-pj').textContent=ativos.filter(c=>c.tipo==='pessoa_juridica').length;
+  const obrasAtivas=_projects.filter(p=>p.status==='em_execucao'||p.status==='mobilizacao');
+  document.getElementById('k-obras').textContent=obrasAtivas.length;
+  const receita=_projects.reduce((s,p)=>s+(p.valor_contrato||0),0);
+  document.getElementById('k-receita').textContent='R$ '+receita.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0});
+}
+
+function filterAtivos(){
+  const s=document.getElementById('f-search').value.toLowerCase();
+  const t=document.getElementById('f-tipo').value;
+  const e=document.getElementById('f-estado').value;
+  return _clients.filter(c=>c.ativo)
+    .filter(c=>!s||(c.nome||'').toLowerCase().includes(s)||(c.sindico_nome||'').toLowerCase().includes(s)||(c.cnpj||'').includes(s))
+    .filter(c=>!t||c.tipo===t)
+    .filter(c=>!e||c.estado===e);
+}
+
+function renderLista(){
+  const list=filterAtivos();
+  const tbody=document.getElementById('tbody-lista');
+  if(!list.length){tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:2rem;">Nenhum cliente encontrado.</td></tr>';return;}
+  tbody.innerHTML=list.map(c=>{
+    const obras=clientObras(c.id);
+    const receita=obras.reduce((s,p)=>s+(p.valor_contrato||0),0);
+    return `<tr>
+      <td><div style="display:flex;align-items:center;gap:.6rem;">
+        <div class="avatar-sq" style="background:${hashColor(c.nome)};">${avatarInitials(c.nome)}</div>
+        <div><div style="font-weight:600;">${c.nome}</div>${c.cnpj?`<div style="font-size:.7rem;color:#94a3b8;">${c.cnpj}</div>`:''}</div>
+      </div></td>
+      <td>${badgeTipo(c.tipo)}</td>
+      <td><div style="font-size:.82rem;">${c.sindico_nome||'—'}</div>${c.sindico_telefone?`<div style="font-size:.7rem;color:#94a3b8;">${c.sindico_telefone}</div>`:''}</td>
+      <td>${c.cidade||'—'}${c.estado?' / '+c.estado:''}</td>
+      <td><span style="font-weight:700;color:#0B1D33;">${obras.length}</span> <span style="font-size:.72rem;color:#64748b;">obras</span></td>
+      <td>R$ ${receita.toLocaleString('pt-BR',{minimumFractionDigits:0})}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-outline btn-sm" onclick="openDrawer('${c.id}')">Ver</button>
+        <button class="btn btn-outline btn-sm" style="margin-left:.3rem;" onclick="editClient('${c.id}')">✏️</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function renderCards(){
+  const s=document.getElementById('f-search-cards').value.toLowerCase();
+  const list=_clients.filter(c=>c.ativo&&(!s||(c.nome||'').toLowerCase().includes(s)));
+  const container=document.getElementById('client-cards');
+  if(!list.length){container.innerHTML='<div style="color:#94a3b8;padding:2rem;font-size:.85rem;">Nenhum cliente.</div>';return;}
+  container.innerHTML=list.map(c=>{
+    const obras=clientObras(c.id);
+    return `<div class="client-card" onclick="openDrawer('${c.id}')">
+      <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.65rem;">
+        <div class="avatar-sq" style="background:${hashColor(c.nome)};width:48px;height:48px;">${avatarInitials(c.nome)}</div>
+        <div><div style="font-weight:700;color:#0B1D33;font-size:.9rem;">${c.nome}</div>
+        <div style="font-size:.72rem;color:#64748b;">${c.cidade||''}${c.estado?' / '+c.estado:''}</div></div>
+      </div>
+      ${badgeTipo(c.tipo)}
+      ${c.andares?`<div style="font-size:.75rem;color:#64748b;margin-top:.4rem;">🏢 ${c.andares} andares · ${c.unidades} unidades</div>`:''}
+      ${c.sindico_nome?`<div style="font-size:.75rem;color:#64748b;margin-top:.25rem;">👤 ${c.sindico_nome}</div>`:''}
+      <div style="font-size:.75rem;color:#94a3b8;margin-top:.4rem;">📂 ${obras.length} obra(s)</div>
+    </div>`;
+  }).join('');
+}
+
+function renderInativos(){
+  const list=_clients.filter(c=>!c.ativo);
+  const tbody=document.getElementById('tbody-inativos');
+  if(!list.length){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:2rem;">Nenhum cliente inativo.</td></tr>';return;}
+  tbody.innerHTML=list.map(c=>`<tr>
+    <td><span style="font-weight:600;">${c.nome}</span></td>
+    <td>${badgeTipo(c.tipo)}</td>
+    <td>${c.cidade||'—'}</td>
+    <td style="font-size:.75rem;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.observacoes||'—'}</td>
+    <td><button class="btn btn-green btn-sm" onclick="reativarClient('${c.id}')">Reativar</button></td>
+  </tr>`).join('');
+}
+
+// ── DRAWER ────────────────────────────────────────────────────────
+function openDrawer(id){
+  const c=_clients.find(x=>x.id===id);
+  if(!c)return;
+  const obras=clientObras(id);
+  document.getElementById('drawer-title').textContent=c.nome;
+  document.getElementById('drawer-body').innerHTML=`
+    <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:1rem;">${badgeTipo(c.tipo)}</div>
+    ${c.cnpj?`<div style="font-size:.8rem;color:#64748b;margin-bottom:.3rem;">CNPJ: ${c.cnpj}</div>`:''}
+    ${c.administradora?`<div style="font-size:.8rem;color:#64748b;margin-bottom:.3rem;">Administradora: ${c.administradora}</div>`:''}
+    ${c.andares?`<div style="font-size:.8rem;color:#64748b;margin-bottom:.3rem;">🏢 ${c.andares} andares · ${c.unidades} unidades</div>`:''}
+    <div class="section-divider" style="margin-top:.75rem;">Síndico</div>
+    <div style="font-size:.85rem;font-weight:600;color:#0B1D33;">${c.sindico_nome||'—'}</div>
+    ${c.sindico_email?`<div style="font-size:.78rem;color:#64748b;margin-top:.2rem;">✉️ ${c.sindico_email}</div>`:''}
+    ${c.sindico_telefone?`<div style="font-size:.78rem;color:#64748b;margin-top:.2rem;">📞 ${c.sindico_telefone}</div>`:''}
+    <div class="section-divider" style="margin-top:.75rem;">Endereço</div>
+    <div style="font-size:.82rem;color:#374151;">${[c.endereco,c.cidade,c.estado,c.cep].filter(Boolean).join(' — ')}</div>
+    <div class="section-divider" style="margin-top:.75rem;">Obras (${obras.length})</div>
+    ${obras.length?obras.map(p=>`<div style="padding:.4rem 0;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:.82rem;font-weight:600;color:#0B1D33;">${p.nome}</span>
+      <span style="font-size:.72rem;">${badgeStatus(p.status)}</span>
+    </div>`).join(''):'<div style="font-size:.82rem;color:#94a3b8;padding:.5rem 0;">Nenhuma obra vinculada.</div>'}
+    <div style="margin-top:1rem;display:flex;gap:.5rem;flex-wrap:wrap;">
+      <button class="btn btn-og btn-sm" onclick="editClient('${c.id}');closeDrawer();">✏️ Editar</button>
+      <a href="obras.html" class="btn btn-outline btn-sm">🏗️ Ir para Obras</a>
+    </div>
+  `;
+  document.getElementById('drawer-overlay').style.display='block';
+  document.getElementById('client-drawer').style.transform='translateX(0)';
+}
+function closeDrawer(){
+  document.getElementById('drawer-overlay').style.display='none';
+  document.getElementById('client-drawer').style.transform='translateX(100%)';
+}
+
+// ── MODAL ──────────────────────────────────────────────────────────
+function openModal(){
+  _editId=null;
+  document.getElementById('modal-title').textContent='Novo Cliente';
+  document.getElementById('btn-del').style.display='none';
+  clearForm();
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function editClient(id){
+  const c=_clients.find(x=>x.id===id);if(!c)return;
+  _editId=id;
+  document.getElementById('modal-title').textContent='Editar Cliente';
+  document.getElementById('btn-del').style.display='block';
+  document.getElementById('f-nome').value=c.nome||'';
+  document.getElementById('f-tipo-m').value=c.tipo||'condominio';
+  document.getElementById('f-cnpj').value=c.cnpj||'';
+  document.getElementById('f-admin').value=c.administradora||'';
+  document.getElementById('f-andares').value=c.andares||'';
+  document.getElementById('f-unidades').value=c.unidades||'';
+  document.getElementById('f-sindico').value=c.sindico_nome||'';
+  document.getElementById('f-email-s').value=c.sindico_email||'';
+  document.getElementById('f-tel-s').value=c.sindico_telefone||'';
+  document.getElementById('f-end').value=c.endereco||'';
+  document.getElementById('f-cidade').value=c.cidade||'';
+  document.getElementById('f-estado-m').value=c.estado||'';
+  document.getElementById('f-cep').value=c.cep||'';
+  document.getElementById('f-servico').value=c.tipo_servico||'';
+  document.getElementById('f-obs').value=c.observacoes||'';
+  document.getElementById('f-ativo').checked=c.ativo!==false;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function closeModal(){document.getElementById('modal-overlay').classList.remove('open');}
+function clearForm(){
+  ['f-nome','f-cnpj','f-admin','f-andares','f-unidades','f-sindico','f-email-s','f-tel-s','f-end','f-cidade','f-estado-m','f-cep','f-servico','f-obs'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-tipo-m').value='condominio';
+  document.getElementById('f-ativo').checked=true;
+}
+async function saveClient(){
+  const nome=document.getElementById('f-nome').value.trim();
+  if(!nome){toast('Nome obrigatório','w');return;}
+  const payload={
+    nome,tipo:document.getElementById('f-tipo-m').value,
+    cnpj:document.getElementById('f-cnpj').value.trim(),
+    administradora:document.getElementById('f-admin').value.trim(),
+    andares:parseInt(document.getElementById('f-andares').value)||0,
+    unidades:parseInt(document.getElementById('f-unidades').value)||0,
+    sindico_nome:document.getElementById('f-sindico').value.trim(),
+    sindico_email:document.getElementById('f-email-s').value.trim(),
+    sindico_telefone:document.getElementById('f-tel-s').value.trim(),
+    endereco:document.getElementById('f-end').value.trim(),
+    cidade:document.getElementById('f-cidade').value.trim(),
+    estado:document.getElementById('f-estado-m').value.trim().toUpperCase(),
+    cep:document.getElementById('f-cep').value.trim(),
+    tipo_servico:document.getElementById('f-servico').value.trim(),
+    observacoes:document.getElementById('f-obs').value.trim(),
+    ativo:document.getElementById('f-ativo').checked
+  };
+  let error;
+  if(_editId){({error}=await sb.from('obs_clients').update(payload).eq('id',_editId));}
+  else{({error}=await sb.from('obs_clients').insert(payload));}
+  if(error){toast(error.message,'e');return;}
+  toast(_editId?'Cliente atualizado':'Cliente cadastrado','s');
+  closeModal();await loadData();
+}
+async function deleteClient(){
+  if(!confirm('Excluir este cliente? As obras vinculadas permanecerão.'))return;
+  const{error}=await sb.from('obs_clients').delete().eq('id',_editId);
+  if(error){toast(error.message,'e');return;}
+  toast('Cliente excluído','s');closeModal();await loadData();
+}
+async function reativarClient(id){
+  const{error}=await sb.from('obs_clients').update({ativo:true}).eq('id',id);
+  if(error){toast(error.message,'e');return;}
+  toast('Cliente reativado','s');await loadData();
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────
+function badgeTipo(t){
+  const map={condominio:'blue',pessoa_juridica:'teal',pessoa_fisica:'orange'};
+  const label={condominio:'Condomínio',pessoa_juridica:'Pessoa Jurídica',pessoa_fisica:'Pessoa Física'};
+  return `<span class="badge ${map[t]||'gray'}">${label[t]||t||'—'}</span>`;
+}
+function badgeStatus(s){
+  const map={prospeccao:'gray',orcamento:'blue',aprovado:'teal',mobilizacao:'orange',em_execucao:'green',vistoria:'blue',entregue:'green',em_garantia:'purple',cancelado:'red'};
+  const label={prospeccao:'Prospecção',orcamento:'Orçamento',aprovado:'Aprovado',mobilizacao:'Mobilização',em_execucao:'Em Execução',vistoria:'Vistoria',entregue:'Entregue',em_garantia:'Garantia',cancelado:'Cancelado'};
+  return `<span class="badge ${map[s]||'gray'}">${label[s]||s}</span>`;
+}
+function avatarInitials(n){if(!n)return '?';const p=n.trim().split(' ');return p.length===1?p[0][0].toUpperCase():(p[0][0]+p[p.length-1][0]).toUpperCase();}
+function hashColor(s){const h=['#0B1D33','#1d4ed8','#0f766e','#7c3aed','#b45309','#0369a1'];let i=0;for(let c of(s||''))i=(i+c.charCodeAt(0))%h.length;return h[i];}
+function toast(msg,type=''){const el=document.createElement('div');el.className='toast'+(type?' '+type:'');el.textContent=msg;document.getElementById('toast-area').appendChild(el);setTimeout(()=>el.remove(),3500);}
+
+boot();
+</script>
+</body>
+</html>

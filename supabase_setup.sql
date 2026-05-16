@@ -408,7 +408,32 @@ create table if not exists public.obs_garantias (
 alter table public.obs_garantias enable row level security;
 create policy "obs_garantias_auth" on public.obs_garantias for all using (auth.uid() is not null) with check (auth.uid() is not null);
 
--- ── 22. AUDIT LOG ────────────────────────────────────────────
+-- ── 22. CONTRATOS ────────────────────────────────────────────
+create table if not exists public.obs_contracts (
+  id                   uuid primary key default gen_random_uuid(),
+  project_id           uuid references public.obs_projects on delete set null,
+  numero               text default '',
+  tipo                 text default 'prestacao_servicos'
+    check (tipo in ('prestacao_servicos','fornecimento','manutencao','outro')),
+  objeto               text not null,
+  status               text default 'em_negociacao'
+    check (status in ('em_negociacao','em_vigor','encerrado','rescindido')),
+  valor                numeric(12,2) default 0,
+  data_assinatura      date,
+  data_inicio          date,
+  data_fim             date,
+  contratante          text default '',
+  condicoes_pagamento  text default '',
+  penalidades          text default '',
+  observacoes          text default '',
+  created_at           timestamptz default now()
+);
+alter table public.obs_contracts enable row level security;
+create policy "obs_contracts_auth" on public.obs_contracts for all
+  using (auth.uid() is not null)
+  with check (auth.uid() is not null);
+
+-- ── 23. AUDIT LOG ────────────────────────────────────────────
 create table if not exists public.obs_audit_logs (
   id            uuid primary key default gen_random_uuid(),
   created_at    timestamptz default now(),
@@ -426,7 +451,7 @@ create policy "obs_audit_read"   on public.obs_audit_logs for select using (auth
 create policy "obs_audit_insert" on public.obs_audit_logs for insert with check (auth.uid() is not null);
 -- Sem UPDATE nem DELETE no audit log
 
--- ── 23. TRIGGER updated_at ───────────────────────────────────
+-- ── 24. TRIGGER updated_at ───────────────────────────────────
 create or replace function public.obs_handle_updated_at()
 returns trigger language plpgsql as $$
 begin new.updated_at = now(); return new; end;
