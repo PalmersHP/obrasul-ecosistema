@@ -122,16 +122,24 @@ tr:hover td{background:#fafafa;}
         <p style="margin:0;">Painel de gestão operacional</p>
       </div>
     </div>
+    <div class="field" id="li-nome-wrap" style="display:none;margin-bottom:.75rem;">
+      <label>Nome completo</label>
+      <input class="inp" type="text" id="li-nome" placeholder="Seu nome">
+    </div>
     <div class="field" style="margin-bottom:.75rem;">
       <label>E-mail</label>
-      <input class="inp" type="email" id="li-email" placeholder="seu@email.com" onkeydown="if(event.key==='Enter')doLogin()">
+      <input class="inp" type="email" id="li-email" placeholder="seu@email.com" onkeydown="if(event.key==='Enter')_liSubmit()">
     </div>
     <div class="field">
       <label>Senha</label>
-      <input class="inp" type="password" id="li-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+      <input class="inp" type="password" id="li-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')_liSubmit()">
     </div>
     <div id="li-err" style="display:none;margin-top:.5rem;font-size:.78rem;color:#dc2626;"></div>
-    <button class="btn-primary" id="li-btn" onclick="doLogin()">Entrar</button>
+    <button class="btn-primary" id="li-btn" onclick="_liSubmit()">Entrar</button>
+    <p style="text-align:center;margin-top:.9rem;font-size:.8rem;color:#64748b;">
+      <span id="li-toggle-txt">Primeira vez?</span>
+      <a id="li-toggle-btn" onclick="_liToggle()" style="color:#E87722;font-weight:700;cursor:pointer;margin-left:.3rem;">Criar conta</a>
+    </p>
   </div>
 </div>
 
@@ -303,6 +311,18 @@ document.getElementById('sb-logo').src    = 'data:image/png;base64,' + LOGO;
 })();
 
 // ── Auth ─────────────────────────────────────────────
+let _liMode = 'login';
+function _liToggle() {
+  _liMode = _liMode === 'login' ? 'signup' : 'login';
+  const isSignup = _liMode === 'signup';
+  document.getElementById('li-nome-wrap').style.display = isSignup ? 'block' : 'none';
+  document.getElementById('li-btn').textContent          = isSignup ? 'Criar conta' : 'Entrar';
+  document.getElementById('li-toggle-txt').textContent  = isSignup ? 'Já tem conta?' : 'Primeira vez?';
+  document.getElementById('li-toggle-btn').textContent  = isSignup ? 'Fazer login' : 'Criar conta';
+  document.getElementById('li-err').style.display = 'none';
+}
+function _liSubmit() { _liMode === 'signup' ? doSignup() : doLogin(); }
+
 async function doLogin() {
   const email = document.getElementById('li-email').value.trim();
   const pass  = document.getElementById('li-pass').value;
@@ -313,6 +333,26 @@ async function doLogin() {
   const { error } = await sb.auth.signInWithPassword({ email, password: pass });
   btn.disabled = false; btn.textContent = 'Entrar';
   if (error) { err.textContent = 'E-mail ou senha incorretos.'; err.style.display='block'; }
+}
+
+async function doSignup() {
+  const nome  = document.getElementById('li-nome').value.trim();
+  const email = document.getElementById('li-email').value.trim();
+  const pass  = document.getElementById('li-pass').value;
+  const err   = document.getElementById('li-err');
+  const btn   = document.getElementById('li-btn');
+  if (!nome || !email || !pass) { err.textContent='Preencha todos os campos.'; err.style.display='block'; return; }
+  if (pass.length < 6) { err.textContent='Senha deve ter ao menos 6 caracteres.'; err.style.display='block'; return; }
+  btn.disabled = true; btn.textContent = 'Criando...'; err.style.display='none';
+  const { data, error } = await sb.auth.signUp({ email, password: pass });
+  btn.disabled = false; btn.textContent = 'Criar conta';
+  if (error) { err.textContent = error.message; err.style.display='block'; return; }
+  if (data?.user) {
+    const { data: hasOwner } = await sb.rpc('obs_has_owner');
+    const role = hasOwner ? 'engenheiro' : 'proprietario';
+    await sb.from('obs_perfis').insert({ id: data.user.id, nome, email, role });
+    await sb.auth.signInWithPassword({ email, password: pass });
+  }
 }
 
 async function _afterLogin(user) {
