@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Biblioteca — Obrasul</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+:root{--navy:#0B1D33;--orange:#E87722;--sidebar:220px;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:"Segoe UI",system-ui,sans-serif;background:#f1f5f9;color:#1e293b;}
+#login-overlay{position:fixed;inset:0;z-index:300;background:#0B1D33;display:flex;align-items:center;justify-content:center;}
+.login-card{background:#fff;border-radius:1rem;padding:2.5rem;width:100%;max-width:400px;box-shadow:0 20px 60px #0008;}
+.inp{width:100%;padding:.6rem .85rem;border:1px solid #cbd5e1;border-radius:.5rem;font-size:.9rem;outline:none;}
+.inp:focus{border-color:#E87722;box-shadow:0 0 0 3px #E8772222;}
+.btn-primary{width:100%;background:#E87722;color:#fff;border:none;padding:.7rem;border-radius:.5rem;font-weight:700;cursor:pointer;margin-top:1rem;}
+.sidebar{position:fixed;top:0;left:0;bottom:0;width:var(--sidebar);background:#0B1D33;display:flex;flex-direction:column;z-index:100;overflow-y:auto;transition:.25s;}
+.sidebar.collapsed{width:60px;}
+.sidebar-logo{padding:1rem;border-bottom:1px solid #1e3a5f;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.sidebar-logo img{width:140px;max-width:100%;object-fit:contain;transition:.25s;}
+.sidebar.collapsed .sidebar-logo img{width:32px;}
+.sidebar.collapsed .nav-label,.sidebar.collapsed .nav-item span.lbl,.sidebar.collapsed .sidebar-footer-text{display:none;}
+.sidebar.collapsed .nav-item{justify-content:center;padding:.55rem 0;}
+.nav-section{padding:.5rem 0;flex-shrink:0;}
+.nav-label{font-size:.6rem;font-weight:800;letter-spacing:.12em;color:#475569;padding:.75rem 1rem .25rem;text-transform:uppercase;}
+.nav-item{display:flex;align-items:center;gap:.6rem;padding:.55rem 1rem;font-size:.82rem;color:#94a3b8;cursor:pointer;transition:.15s;border-left:3px solid transparent;text-decoration:none;}
+.nav-item:hover{color:#fff;background:#1e3a5f;}
+.nav-item.active{color:#E87722;border-left-color:#E87722;background:#1e3a5f22;font-weight:600;}
+.nav-item .ic{font-size:1rem;width:1.2rem;text-align:center;flex-shrink:0;}
+.sidebar-footer{margin-top:auto;border-top:1px solid #1e3a5f;padding:.75rem 1rem;flex-shrink:0;}
+.user-info{font-size:.75rem;color:#94a3b8;line-height:1.5;}
+.user-info b{color:#fff;display:block;}
+.btn-logout{width:100%;margin-top:.5rem;background:#1e3a5f;color:#94a3b8;border:none;padding:.4rem;border-radius:.4rem;font-size:.75rem;cursor:pointer;}
+.btn-logout:hover{background:#ef4444;color:#fff;}
+#app{display:none;}
+.main{margin-left:var(--sidebar);min-height:100vh;display:flex;flex-direction:column;transition:.25s;}
+.main.expanded{margin-left:60px;}
+.top-bar{background:#fff;border-bottom:1px solid #e2e8f0;padding:.6rem 1.5rem;display:flex;align-items:center;gap:.75rem;position:sticky;top:0;z-index:50;}
+.top-bar h2{font-size:1rem;font-weight:700;color:#0B1D33;}
+.page-wrap{padding:1.5rem;flex:1;}
+.card{background:#fff;border-radius:.75rem;box-shadow:0 1px 4px #0001;}
+.btn{padding:.4rem .9rem;border-radius:.45rem;font-size:.8rem;font-weight:600;cursor:pointer;border:none;transition:.15s;}
+.btn-og{background:#E87722;color:#fff;}.btn-og:hover{background:#d06918;}
+.btn-outline{background:#fff;color:#374151;border:1px solid #e2e8f0;}.btn-outline:hover{background:#f8fafc;}
+.btn-sm{padding:.3rem .65rem;font-size:.75rem;}
+.btn-danger{background:#fef2f2;color:#dc2626;border:1px solid #fecaca;}.btn-danger:hover{background:#dc2626;color:#fff;}
+.btn-blue{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;}.btn-blue:hover{background:#1d4ed8;color:#fff;}
+.badge{display:inline-block;padding:.15rem .55rem;border-radius:9999px;font-size:.68rem;font-weight:700;}
+.badge.blue{background:#eff6ff;color:#1d4ed8;}.badge.green{background:#f0fdf4;color:#166534;}
+.badge.orange{background:#fff7ed;color:#c2410c;}.badge.gray{background:#f1f5f9;color:#475569;}
+.badge.red{background:#fef2f2;color:#dc2626;}.badge.teal{background:#f0fdfa;color:#0f766e;}
+.badge.yellow{background:#fefce8;color:#854d0e;}.badge.purple{background:#faf5ff;color:#7c3aed;}
+#modal-overlay{position:fixed;inset:0;background:#0006;z-index:200;display:none;align-items:center;justify-content:center;padding:1rem;}
+#modal-overlay.open{display:flex;}
+.modal{background:#fff;border-radius:1rem;width:100%;max-width:560px;max-height:92vh;overflow-y:auto;box-shadow:0 20px 60px #0004;}
+.modal-header{padding:1.1rem 1.4rem;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:1;}
+.modal-header h3{font-size:1rem;font-weight:700;color:#0B1D33;}
+.modal-body{padding:1.2rem 1.4rem;display:flex;flex-direction:column;gap:.85rem;}
+.modal-footer{padding:.9rem 1.4rem;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:.5rem;}
+.field label{display:block;font-size:.78rem;font-weight:600;color:#374151;margin-bottom:.3rem;}
+.field input,.field select,.field textarea{width:100%;padding:.5rem .75rem;border:1px solid #cbd5e1;border-radius:.45rem;font-size:.85rem;outline:none;transition:.15s;}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:#E87722;box-shadow:0 0 0 3px #E8772222;}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;}
+#toast-area{position:fixed;bottom:1.5rem;right:1.5rem;z-index:999;display:flex;flex-direction:column;gap:.5rem;}
+.toast{background:#1e293b;color:#fff;padding:.65rem 1rem;border-radius:.5rem;font-size:.82rem;font-weight:500;box-shadow:0 4px 16px #0004;animation:fadeUp .25s ease;max-width:320px;}
+.toast.s{background:#166534;}.toast.e{background:#dc2626;}.toast.w{background:#92400e;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.75rem;margin-bottom:1.5rem;}
+.kpi{background:#fff;border-radius:.75rem;padding:.9rem 1rem;border-left:4px solid #E87722;box-shadow:0 1px 4px #0001;}
+.kpi.green{border-left-color:#22c55e;}.kpi.blue{border-left-color:#3b82f6;}.kpi.teal{border-left-color:#14b8a6;}
+.kpi.orange{border-left-color:#f97316;}.kpi.purple{border-left-color:#8b5cf6;}
+.kpi-label{font-size:.65rem;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+.kpi-value{font-size:1.15rem;font-weight:800;color:#0B1D33;margin:.25rem 0 .1rem;}
+.kpi-sub{font-size:.68rem;color:#94a3b8;}
+.filter-bar{background:#fff;border-radius:.75rem;box-shadow:0 1px 4px #0001;padding:.65rem 1rem;margin-bottom:1rem;display:flex;align-items:center;gap:.65rem;flex-wrap:wrap;}
+.filter-bar input,.filter-bar select{padding:.35rem .6rem;border:1px solid #e2e8f0;border-radius:.4rem;font-size:.78rem;outline:none;color:#374151;}
+.filter-bar input:focus,.filter-bar select:focus{border-color:#E87722;}
+.doc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:.75rem;}
+.doc-card{background:#fff;border:1px solid #e2e8f0;border-radius:.65rem;padding:1rem;transition:.15s;display:flex;flex-direction:column;gap:.4rem;}
+.doc-card:hover{border-color:#E87722;box-shadow:0 2px 8px #E8772211;}
+.doc-icon{font-size:2rem;text-align:center;margin-bottom:.2rem;}
+.doc-name{font-weight:700;font-size:.88rem;color:#0B1D33;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.doc-meta{font-size:.72rem;color:#94a3b8;}
+.tipo-section{margin-bottom:1.5rem;}
+.tipo-header{display:flex;align-items:center;gap:.5rem;margin-bottom:.65rem;padding-bottom:.35rem;border-bottom:2px solid #f1f5f9;}
+.tipo-header span{font-size:.78rem;font-weight:700;color:#0B1D33;text-transform:uppercase;letter-spacing:.05em;}
+.upload-area{border:2px dashed #e2e8f0;border-radius:.65rem;padding:1.5rem;text-align:center;cursor:pointer;transition:.15s;}
+.upload-area:hover{border-color:#E87722;background:#fff7ed22;}
+.upload-area.drag-over{border-color:#E87722;background:#fff7ed;}
+.progress-bar{height:6px;border-radius:9999px;background:#e2e8f0;overflow:hidden;margin-top:.5rem;}
+.progress-fill{height:100%;border-radius:9999px;background:#E87722;transition:.3s;}
+</style>
+</head>
+<body>
+<div id="login-overlay">
+  <div class="login-card">
+    <div style="text-align:center;margin-bottom:1.5rem;"><img id="li-logo" src="" alt="Obrasul" style="height:50px;object-fit:contain;margin:0 auto;"></div>
+    <div class="field" style="margin-bottom:.75rem;"><label>E-mail</label><input class="inp" type="email" id="li-email" placeholder="seu@email.com"></div>
+    <div class="field" style="margin-bottom:.75rem;"><label>Senha</label><input class="inp" type="password" id="li-pw" placeholder="••••••••"></div>
+    <div id="li-err" style="color:#dc2626;font-size:.8rem;min-height:1.2rem;"></div>
+    <button class="btn-primary" onclick="doLogin()">Entrar</button>
+  </div>
+</div>
+
+<div id="app">
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo"><img id="sb-logo" src="" alt="Obrasul"></div>
+  <div style="padding:.5rem .6rem;border-bottom:1px solid #1e3a5f;flex-shrink:0;">
+    <button onclick="toggleSidebar()" style="width:100%;background:#1e3a5f22;color:#94a3b8;border:none;border-radius:.4rem;padding:.35rem;font-size:.8rem;cursor:pointer;">☰</button>
+  </div>
+  
+  <nav class="nav-section">
+    <div class="nav-label">Principal</div>
+    <a href="index.html" class="nav-item"><span class="ic">🏠</span><span class="lbl">Dashboard</span></a>
+    <a href="clientes.html" class="nav-item"><span class="ic">🏢</span><span class="lbl">Clientes</span></a>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-label">Operações</div>
+    <a href="orcamentos.html" class="nav-item"><span class="ic">📋</span><span class="lbl">Orçamentos</span></a>
+    <a href="obras.html" class="nav-item"><span class="ic">🏗️</span><span class="lbl">Obras</span></a>
+    <a href="financeiro.html" class="nav-item"><span class="ic">💰</span><span class="lbl">Financeiro</span></a>
+    <a href="contratos.html" class="nav-item"><span class="ic">📄</span><span class="lbl">Contratos</span></a>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-label">Recursos</div>
+    <a href="compras.html" class="nav-item"><span class="ic">🛒</span><span class="lbl">Compras</span></a>
+    <a href="estoque.html" class="nav-item"><span class="ic">📦</span><span class="lbl">Estoque</span></a>
+    <a href="equipe.html" class="nav-item"><span class="ic">👷</span><span class="lbl">Equipe</span></a>
+    <a href="qualidade.html" class="nav-item"><span class="ic">✅</span><span class="lbl">Qualidade</span></a>
+    <a href="garantias.html" class="nav-item"><span class="ic">🛡️</span><span class="lbl">Garantias</span></a>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-label">Comunicação</div>
+    <a href="comunicados.html" class="nav-item"><span class="ic">📢</span><span class="lbl">Comunicados</span></a>
+    <a href="biblioteca.html" class="nav-item active"><span class="ic">📚</span><span class="lbl">Biblioteca</span></a>
+    <a href="relatorios.html" class="nav-item"><span class="ic">📊</span><span class="lbl">Relatórios</span></a>
+    <a href="index.html#configuracoes" class="nav-item"><span class="ic">⚙️</span><span class="lbl">Configurações</span></a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="user-info sidebar-footer-text"><b id="sb-user-name">—</b><span id="sb-user-email">—</span></div>
+    <button class="btn-logout" onclick="doLogout()">Sair</button>
+  </div>
+</aside>
+
+<div class="main" id="main">
+  <div class="top-bar">
+    <span style="font-size:1.2rem;">📚</span>
+    <h2>Biblioteca de Documentos</h2>
+    <div style="margin-left:auto;display:flex;gap:.5rem;">
+      <button class="btn btn-og btn-sm" onclick="openModal()">+ Adicionar</button>
+    </div>
+  </div>
+  <div class="page-wrap">
+    <div class="kpi-row">
+      <div class="kpi"><div class="kpi-label">Total Docs</div><div class="kpi-value" id="k-total">—</div><div class="kpi-sub">cadastrados</div></div>
+      <div class="kpi blue"><div class="kpi-label">Contratos</div><div class="kpi-value" id="k-contrato">—</div></div>
+      <div class="kpi teal"><div class="kpi-label">ARTs</div><div class="kpi-value" id="k-art">—</div></div>
+      <div class="kpi green"><div class="kpi-label">Laudos</div><div class="kpi-value" id="k-laudo">—</div></div>
+      <div class="kpi orange"><div class="kpi-label">As Built</div><div class="kpi-value" id="k-asbuilt">—</div></div>
+      <div class="kpi purple"><div class="kpi-label">Vísiveis Síndico</div><div class="kpi-value" id="k-sindico">—</div><div class="kpi-sub">no portal</div></div>
+    </div>
+
+    <div class="filter-bar">
+      <input type="text" id="f-search" placeholder="Buscar nome do documento…" style="min-width:200px;" oninput="renderDocs()">
+      <select id="f-tipo" onchange="renderDocs()">
+        <option value="">Todos os tipos</option>
+        <option value="contrato">Contrato</option>
+        <option value="art">ART</option>
+        <option value="orcamento_aprovado">Orçamento Aprovado</option>
+        <option value="laudo">Laudo</option>
+        <option value="as_built">As Built</option>
+        <option value="seguro">Seguro</option>
+        <option value="outro">Outro</option>
+      </select>
+      <select id="f-obra" onchange="renderDocs()"><option value="">Todas as obras</option></select>
+      <label style="display:flex;align-items:center;gap:.3rem;font-size:.78rem;cursor:pointer;">
+        <input type="checkbox" id="f-sindico-f" onchange="renderDocs()"> Visível síndico
+      </label>
+      <select id="f-view" onchange="renderDocs()" style="margin-left:auto;">
+        <option value="cards">Cartões</option>
+        <option value="lista">Lista</option>
+        <option value="tipo">Por Tipo</option>
+      </select>
+      <button class="btn btn-outline btn-sm" onclick="loadData()">↻</button>
+    </div>
+
+    <div id="docs-container"></div>
+  </div>
+</div>
+</div>
+
+<!-- Modal Adicionar Documento -->
+<div id="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modal-title">Adicionar Documento</h3>
+      <button onclick="closeModal()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#64748b;">✕</button>
+    </div>
+    <div class="modal-body">
+      <!-- Upload area -->
+      <div id="upload-area" class="upload-area" onclick="document.getElementById('file-input').click()" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+        <div style="font-size:2rem;margin-bottom:.4rem;">📎</div>
+        <div style="font-size:.85rem;font-weight:600;color:#374151;">Arraste um arquivo ou clique para selecionar</div>
+        <div style="font-size:.75rem;color:#94a3b8;margin-top:.2rem;">PDF, Word, Excel, imagens — máx. 20 MB</div>
+        <input type="file" id="file-input" style="display:none;" onchange="onFileSelect(event)" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.dwg">
+      </div>
+      <div id="upload-progress" style="display:none;">
+        <div style="font-size:.78rem;color:#374151;" id="upload-filename"></div>
+        <div class="progress-bar"><div class="progress-fill" id="upload-bar" style="width:0%"></div></div>
+      </div>
+
+      <div class="field"><label>Nome do Documento*</label><input id="f-nome" type="text" placeholder="ART — Reforma Fachada"></div>
+      <div class="field-row">
+        <div class="field"><label>Tipo*</label>
+          <select id="f-tipo-m">
+            <option value="contrato">Contrato</option>
+            <option value="art">ART</option>
+            <option value="orcamento_aprovado">Orçamento Aprovado</option>
+            <option value="laudo">Laudo</option>
+            <option value="as_built">As Built</option>
+            <option value="seguro">Seguro</option>
+            <option value="outro">Outro</option>
+          </select>
+        </div>
+        <div class="field"><label>Obra vinculada</label><select id="f-obra-m"><option value="">Nenhuma</option></select></div>
+      </div>
+      <div class="field"><label>URL do Arquivo (ou cole link externo)</label>
+        <input id="f-url" type="url" placeholder="https://… ou será preenchido pelo upload">
+      </div>
+      <div class="field" style="display:flex;align-items:center;gap:.5rem;">
+        <input type="checkbox" id="f-sindico-m" checked>
+        <label for="f-sindico-m" style="font-size:.82rem;font-weight:600;cursor:pointer;">Visível no Portal do Síndico</label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger btn-sm" id="btn-del" style="margin-right:auto;display:none;" onclick="deleteDoc()">Excluir</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-og" onclick="saveDoc()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-area"></div>
+
+<script>
+const SB_URL='https://jmjbdundgbbefvhvyffb.supabase.co';
+const SB_KEY='sb_publishable_CeLpQY1DjpWfv8U2lSMmew_Uqq6OchZ';
+const sb=supabase.createClient(SB_URL,SB_KEY);
+let _docs=[], _obras=[], _editId=null, _uploadUrl='', _userId=null;
+
+async function boot(){
+  const logo=await getLogoUrl();
+  document.getElementById('li-logo').src=logo;
+  document.getElementById('sb-logo').src=logo;
+  const{data:{session}}=await sb.auth.getSession();
+  if(session) await enterApp(session.user);
+}
+async function getLogoUrl(){try{const{data}=sb.storage.from('logos').getPublicUrl('obrasul-logo.png');return data.publicUrl;}catch(e){return '';}}
+async function doLogin(){
+  const email=document.getElementById('li-email').value.trim(),pw=document.getElementById('li-pw').value;
+  document.getElementById('li-err').textContent='';
+  const{data,error}=await sb.auth.signInWithPassword({email,password:pw});
+  if(error){document.getElementById('li-err').textContent=error.message;return;}
+  await enterApp(data.user);
+}
+async function enterApp(user){
+  _userId=user.id;
+  document.getElementById('sb-user-email').textContent=user.email;
+  const{data:p}=await sb.from('obs_perfis').select('nome_completo').eq('id',user.id).single();
+  document.getElementById('sb-user-name').textContent=p?.nome_completo||user.email;
+  document.getElementById('login-overlay').style.display='none';
+  document.getElementById('app').style.display='block';
+  await loadData();
+}
+async function doLogout(){await sb.auth.signOut();location.reload();}
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('collapsed');document.getElementById('main').classList.toggle('expanded');}
+
+async function loadData(){
+  const[{data:docs},{data:obras}]=await Promise.all([
+    sb.from('obs_documents').select('*, obs_projects(nome)').order('created_at',{ascending:false}),
+    sb.from('obs_projects').select('id,nome').order('nome')
+  ]);
+  _docs=docs||[]; _obras=obras||[];
+  document.getElementById('f-obra').innerHTML='<option value="">Todas as obras</option>'+_obras.map(o=>`<option value="${o.id}">${o.nome}</option>`).join('');
+  document.getElementById('f-obra-m').innerHTML='<option value="">Nenhuma</option>'+_obras.map(o=>`<option value="${o.id}">${o.nome}</option>`).join('');
+  updateKPIs(); renderDocs();
+}
+
+function updateKPIs(){
+  document.getElementById('k-total').textContent=_docs.length;
+  ['contrato','art','laudo','as_built'].forEach(t=>{
+    const id={contrato:'k-contrato',art:'k-art',laudo:'k-laudo',as_built:'k-asbuilt'}[t];
+    document.getElementById(id).textContent=_docs.filter(d=>d.tipo===t).length;
+  });
+  document.getElementById('k-sindico').textContent=_docs.filter(d=>d.visivel_sindico).length;
+}
+
+function filterDocs(){
+  const s=document.getElementById('f-search').value.toLowerCase();
+  const tipo=document.getElementById('f-tipo').value;
+  const obra=document.getElementById('f-obra').value;
+  const sindico=document.getElementById('f-sindico-f').checked;
+  return _docs
+    .filter(d=>!s||(d.nome||'').toLowerCase().includes(s))
+    .filter(d=>!tipo||d.tipo===tipo)
+    .filter(d=>!obra||d.project_id===obra)
+    .filter(d=>!sindico||d.visivel_sindico);
+}
+
+function renderDocs(){
+  const view=document.getElementById('f-view').value;
+  const list=filterDocs();
+  const container=document.getElementById('docs-container');
+  if(!list.length){container.innerHTML='<div style="padding:2rem;text-align:center;color:#94a3b8;font-size:.85rem;">Nenhum documento encontrado.</div>';return;}
+  if(view==='lista') renderLista(list,container);
+  else if(view==='tipo') renderPorTipo(list,container);
+  else renderCards(list,container);
+}
+
+function renderCards(list,container){
+  container.innerHTML='<div class="doc-grid">'+list.map(d=>`
+    <div class="doc-card">
+      <div class="doc-icon">${tipoIcon(d.tipo)}</div>
+      <div class="doc-name" title="${d.nome}">${d.nome}</div>
+      <div style="display:flex;gap:.3rem;flex-wrap:wrap;">${badgeTipo(d.tipo)}${d.visivel_sindico?'<span class="badge teal" style="font-size:.6rem;">Portal</span>':''}</div>
+      <div class="doc-meta">${d.obs_projects?.nome||'Sem obra'} · ${fmtDate(d.created_at)}</div>
+      <div style="display:flex;gap:.3rem;margin-top:.3rem;">
+        <a href="${d.url}" target="_blank" class="btn btn-blue btn-sm" style="flex:1;text-align:center;text-decoration:none;">↗ Abrir</a>
+        <button class="btn btn-outline btn-sm" onclick="editDoc('${d.id}')">✏️</button>
+      </div>
+    </div>
+  `).join('')+'</div>';
+}
+
+function renderLista(list,container){
+  container.innerHTML='<div class="card" style="overflow:auto;"><table><thead><tr><th>Nome</th><th>Tipo</th><th>Obra</th><th>Portal</th><th>Data</th><th></th></tr></thead><tbody>'+
+    list.map(d=>`<tr>
+      <td><span style="font-size:1rem;margin-right:.35rem;">${tipoIcon(d.tipo)}</span><span style="font-weight:600;">${d.nome}</span></td>
+      <td>${badgeTipo(d.tipo)}</td>
+      <td style="font-size:.78rem;">${d.obs_projects?.nome||'—'}</td>
+      <td>${d.visivel_sindico?'<span class="badge teal">Sim</span>':'<span class="badge gray">Não</span>'}</td>
+      <td style="font-size:.78rem;">${fmtDate(d.created_at)}</td>
+      <td style="white-space:nowrap;">
+        <a href="${d.url}" target="_blank" class="btn btn-blue btn-sm">↗</a>
+        <button class="btn btn-outline btn-sm" style="margin-left:.3rem;" onclick="editDoc('${d.id}')">✏️</button>
+      </td>
+    </tr>`).join('')+
+  '</tbody></table></div>';
+}
+
+function renderPorTipo(list,container){
+  const tipoMap={};
+  list.forEach(d=>{if(!tipoMap[d.tipo])tipoMap[d.tipo]=[];tipoMap[d.tipo].push(d);});
+  const tipoOrder=['contrato','art','orcamento_aprovado','laudo','as_built','seguro','outro'];
+  container.innerHTML=tipoOrder.filter(t=>tipoMap[t]).map(t=>`
+    <div class="tipo-section">
+      <div class="tipo-header">
+        <span style="font-size:1.1rem;">${tipoIcon(t)}</span>
+        <span>${tipoLabel(t)} (${tipoMap[t].length})</span>
+      </div>
+      <div class="doc-grid">${tipoMap[t].map(d=>`
+        <div class="doc-card">
+          <div class="doc-name" title="${d.nome}">${d.nome}</div>
+          <div class="doc-meta">${d.obs_projects?.nome||'Sem obra'} · ${fmtDate(d.created_at)}</div>
+          <div style="display:flex;gap:.3rem;margin-top:.25rem;">
+            <a href="${d.url}" target="_blank" class="btn btn-blue btn-sm" style="flex:1;text-align:center;text-decoration:none;">↗ Abrir</a>
+            <button class="btn btn-outline btn-sm" onclick="editDoc('${d.id}')">✏️</button>
+          </div>
+        </div>
+      `).join('')}</div>
+    </div>
+  `).join('');
+}
+
+// ── UPLOAD ────────────────────────────────────────────────────────
+function onDragOver(e){e.preventDefault();document.getElementById('upload-area').classList.add('drag-over');}
+function onDragLeave(){document.getElementById('upload-area').classList.remove('drag-over');}
+function onDrop(e){e.preventDefault();document.getElementById('upload-area').classList.remove('drag-over');const f=e.dataTransfer.files[0];if(f)handleFile(f);}
+function onFileSelect(e){const f=e.target.files[0];if(f)handleFile(f);}
+
+async function handleFile(file){
+  if(file.size>20*1024*1024){toast('Arquivo maior que 20 MB','w');return;}
+  document.getElementById('f-nome').value=document.getElementById('f-nome').value||file.name.replace(/\.[^.]+$/,'');
+  document.getElementById('upload-filename').textContent=file.name;
+  document.getElementById('upload-progress').style.display='block';
+  document.getElementById('upload-bar').style.width='30%';
+  const path=`documentos/${Date.now()}_${file.name.replace(/\s/g,'_')}`;
+  const{data,error}=await sb.storage.from('documentos').upload(path,file,{cacheControl:'3600',upsert:false});
+  if(error){toast('Erro no upload: '+error.message,'e');document.getElementById('upload-progress').style.display='none';return;}
+  document.getElementById('upload-bar').style.width='100%';
+  const{data:urlData}=sb.storage.from('documentos').getPublicUrl(path);
+  _uploadUrl=urlData.publicUrl;
+  document.getElementById('f-url').value=_uploadUrl;
+  toast('Arquivo enviado','s');
+}
+
+// ── MODAL ──────────────────────────────────────────────────────────
+function openModal(){
+  _editId=null; _uploadUrl='';
+  document.getElementById('modal-title').textContent='Adicionar Documento';
+  document.getElementById('btn-del').style.display='none';
+  clearForm();
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function editDoc(id){
+  const d=_docs.find(x=>x.id===id);if(!d)return;
+  _editId=id;
+  document.getElementById('modal-title').textContent='Editar Documento';
+  document.getElementById('btn-del').style.display='block';
+  document.getElementById('f-nome').value=d.nome||'';
+  document.getElementById('f-tipo-m').value=d.tipo||'outro';
+  document.getElementById('f-obra-m').value=d.project_id||'';
+  document.getElementById('f-url').value=d.url||'';
+  document.getElementById('f-sindico-m').checked=d.visivel_sindico!==false;
+  document.getElementById('upload-progress').style.display='none';
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function closeModal(){document.getElementById('modal-overlay').classList.remove('open');}
+function clearForm(){
+  ['f-nome','f-url'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-tipo-m').value='outro';
+  document.getElementById('f-obra-m').value='';
+  document.getElementById('f-sindico-m').checked=true;
+  document.getElementById('upload-progress').style.display='none';
+  document.getElementById('upload-bar').style.width='0%';
+  document.getElementById('file-input').value='';
+}
+async function saveDoc(){
+  const nome=document.getElementById('f-nome').value.trim();
+  const url=document.getElementById('f-url').value.trim();
+  if(!nome){toast('Nome obrigatório','w');return;}
+  if(!url){toast('URL ou arquivo obrigatório','w');return;}
+  const payload={
+    nome, url,
+    tipo:document.getElementById('f-tipo-m').value,
+    project_id:document.getElementById('f-obra-m').value||null,
+    visivel_sindico:document.getElementById('f-sindico-m').checked,
+    autor_id:_userId
+  };
+  let error;
+  if(_editId){({error}=await sb.from('obs_documents').update(payload).eq('id',_editId));}
+  else{({error}=await sb.from('obs_documents').insert(payload));}
+  if(error){toast(error.message,'e');return;}
+  toast(_editId?'Documento atualizado':'Documento adicionado','s');
+  closeModal();await loadData();
+}
+async function deleteDoc(){
+  if(!confirm('Excluir este documento?'))return;
+  const{error}=await sb.from('obs_documents').delete().eq('id',_editId);
+  if(error){toast(error.message,'e');return;}
+  toast('Documento excluído','s');closeModal();await loadData();
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────
+function tipoIcon(t){return {contrato:'📄',art:'📐',orcamento_aprovado:'📋',laudo:'🔍',as_built:'🏗️',seguro:'🛡️',outro:'📎'}[t]||'📎';}
+function tipoLabel(t){return {contrato:'Contrato',art:'ART',orcamento_aprovado:'Orçamento Aprovado',laudo:'Laudo',as_built:'As Built',seguro:'Seguro',outro:'Outro'}[t]||t;}
+function badgeTipo(t){
+  const map={contrato:'blue',art:'teal',orcamento_aprovado:'green',laudo:'purple',as_built:'orange',seguro:'yellow',outro:'gray'};
+  return `<span class="badge ${map[t]||'gray'}" style="font-size:.6rem;">${tipoLabel(t)}</span>`;
+}
+function fmtDate(d){if(!d)return '—';return new Date(d).toLocaleDateString('pt-BR');}
+function toast(msg,type=''){const el=document.createElement('div');el.className='toast'+(type?' '+type:'');el.textContent=msg;document.getElementById('toast-area').appendChild(el);setTimeout(()=>el.remove(),3500);}
+
+boot();
+</script>
+</body>
+</html>

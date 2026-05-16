@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Relatórios — Obrasul</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<style>
+:root{--navy:#0B1D33;--orange:#E87722;--sidebar:220px;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:"Segoe UI",system-ui,sans-serif;background:#f1f5f9;color:#1e293b;}
+#login-overlay{position:fixed;inset:0;z-index:300;background:#0B1D33;display:flex;align-items:center;justify-content:center;}
+.login-card{background:#fff;border-radius:1rem;padding:2.5rem;width:100%;max-width:400px;box-shadow:0 20px 60px #0008;}
+.inp{width:100%;padding:.6rem .85rem;border:1px solid #cbd5e1;border-radius:.5rem;font-size:.9rem;outline:none;}
+.inp:focus{border-color:#E87722;box-shadow:0 0 0 3px #E8772222;}
+.btn-primary{width:100%;background:#E87722;color:#fff;border:none;padding:.7rem;border-radius:.5rem;font-weight:700;cursor:pointer;margin-top:1rem;}
+.sidebar{position:fixed;top:0;left:0;bottom:0;width:var(--sidebar);background:#0B1D33;display:flex;flex-direction:column;z-index:100;overflow-y:auto;transition:.25s;}
+.sidebar.collapsed{width:60px;}
+.sidebar-logo{padding:1rem;border-bottom:1px solid #1e3a5f;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.sidebar-logo img{width:140px;max-width:100%;object-fit:contain;transition:.25s;}
+.sidebar.collapsed .sidebar-logo img{width:32px;}
+.sidebar.collapsed .nav-label,.sidebar.collapsed .nav-item span.lbl,.sidebar.collapsed .sidebar-footer-text{display:none;}
+.sidebar.collapsed .nav-item{justify-content:center;padding:.55rem 0;}
+.nav-section{padding:.5rem 0;flex-shrink:0;}
+.nav-label{font-size:.6rem;font-weight:800;letter-spacing:.12em;color:#475569;padding:.75rem 1rem .25rem;text-transform:uppercase;}
+.nav-item{display:flex;align-items:center;gap:.6rem;padding:.55rem 1rem;font-size:.82rem;color:#94a3b8;cursor:pointer;transition:.15s;border-left:3px solid transparent;text-decoration:none;}
+.nav-item:hover{color:#fff;background:#1e3a5f;}
+.nav-item.active{color:#E87722;border-left-color:#E87722;background:#1e3a5f22;font-weight:600;}
+.nav-item .ic{font-size:1rem;width:1.2rem;text-align:center;flex-shrink:0;}
+.sidebar-footer{margin-top:auto;border-top:1px solid #1e3a5f;padding:.75rem 1rem;flex-shrink:0;}
+.user-info{font-size:.75rem;color:#94a3b8;line-height:1.5;}
+.user-info b{color:#fff;display:block;}
+.btn-logout{width:100%;margin-top:.5rem;background:#1e3a5f;color:#94a3b8;border:none;padding:.4rem;border-radius:.4rem;font-size:.75rem;cursor:pointer;}
+.btn-logout:hover{background:#ef4444;color:#fff;}
+#app{display:none;}
+.main{margin-left:var(--sidebar);min-height:100vh;display:flex;flex-direction:column;transition:.25s;}
+.main.expanded{margin-left:60px;}
+.top-bar{background:#fff;border-bottom:1px solid #e2e8f0;padding:.6rem 1.5rem;display:flex;align-items:center;gap:.75rem;position:sticky;top:0;z-index:50;}
+.top-bar h2{font-size:1rem;font-weight:700;color:#0B1D33;}
+.page-wrap{padding:1.5rem;flex:1;}
+.card{background:#fff;border-radius:.75rem;box-shadow:0 1px 4px #0001;}
+.btn{padding:.4rem .9rem;border-radius:.45rem;font-size:.8rem;font-weight:600;cursor:pointer;border:none;transition:.15s;}
+.btn-og{background:#E87722;color:#fff;}.btn-og:hover{background:#d06918;}
+.btn-outline{background:#fff;color:#374151;border:1px solid #e2e8f0;}.btn-outline:hover{background:#f8fafc;}
+.btn-sm{padding:.3rem .65rem;font-size:.75rem;}
+.badge{display:inline-block;padding:.15rem .55rem;border-radius:9999px;font-size:.68rem;font-weight:700;}
+.badge.blue{background:#eff6ff;color:#1d4ed8;}.badge.green{background:#f0fdf4;color:#166534;}
+.badge.orange{background:#fff7ed;color:#c2410c;}.badge.gray{background:#f1f5f9;color:#475569;}
+.badge.red{background:#fef2f2;color:#dc2626;}.badge.teal{background:#f0fdfa;color:#0f766e;}
+.badge.yellow{background:#fefce8;color:#854d0e;}
+#toast-area{position:fixed;bottom:1.5rem;right:1.5rem;z-index:999;display:flex;flex-direction:column;gap:.5rem;}
+.toast{background:#1e293b;color:#fff;padding:.65rem 1rem;border-radius:.5rem;font-size:.82rem;font-weight:500;box-shadow:0 4px 16px #0004;animation:fadeUp .25s ease;max-width:320px;}
+.toast.s{background:#166534;}.toast.e{background:#dc2626;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.tab-bar{display:flex;gap:0;border-bottom:2px solid #e2e8f0;margin-bottom:1.25rem;}
+.tab{padding:.55rem 1.1rem;font-size:.82rem;font-weight:600;color:#64748b;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:.15s;white-space:nowrap;}
+.tab.active{color:#E87722;border-bottom-color:#E87722;}
+.tab-panel{display:none;}.tab-panel.active{display:block;}
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:.75rem;margin-bottom:1.5rem;}
+.kpi{background:#fff;border-radius:.75rem;padding:.9rem 1rem;border-left:4px solid #E87722;box-shadow:0 1px 4px #0001;}
+.kpi.green{border-left-color:#22c55e;}.kpi.blue{border-left-color:#3b82f6;}.kpi.yellow{border-left-color:#f59e0b;}
+.kpi.red{border-left-color:#ef4444;}.kpi.teal{border-left-color:#14b8a6;}.kpi.purple{border-left-color:#8b5cf6;}
+.kpi-label{font-size:.65rem;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+.kpi-value{font-size:1.15rem;font-weight:800;color:#0B1D33;margin:.25rem 0 .1rem;}
+.kpi-sub{font-size:.68rem;color:#94a3b8;}
+.chart-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:1rem;margin-bottom:1.25rem;}
+.chart-card{background:#fff;border-radius:.75rem;box-shadow:0 1px 4px #0001;padding:1rem;}
+.chart-title{font-size:.78rem;font-weight:700;color:#0B1D33;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.75rem;}
+.chart-wrap{position:relative;height:220px;}
+table{width:100%;border-collapse:collapse;font-size:.82rem;}
+th{background:#f8fafc;padding:.5rem .85rem;text-align:left;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e2e8f0;}
+td{padding:.55rem .85rem;border-bottom:1px solid #f1f5f9;color:#374151;vertical-align:middle;}
+tr:hover td{background:#fafafa;}
+.rank-bar{height:6px;border-radius:9999px;background:#f1f5f9;overflow:hidden;}
+.rank-fill{height:100%;border-radius:9999px;background:#E87722;}
+@media print{.sidebar,.top-bar,.btn,#toast-area{display:none!important;}.main{margin-left:0!important;}}
+</style>
+</head>
+<body>
+<div id="login-overlay">
+  <div class="login-card">
+    <div style="text-align:center;margin-bottom:1.5rem;"><img id="li-logo" src="" alt="Obrasul" style="height:50px;object-fit:contain;margin:0 auto;"></div>
+    <div class="field" style="margin-bottom:.75rem;"><label style="font-size:.78rem;font-weight:600;display:block;margin-bottom:.3rem;">E-mail</label><input class="inp" type="email" id="li-email" placeholder="seu@email.com"></div>
+    <div class="field" style="margin-bottom:.75rem;"><label style="font-size:.78rem;font-weight:600;display:block;margin-bottom:.3rem;">Senha</label><input class="inp" type="password" id="li-pw" placeholder="••••••••"></div>
+    <div id="li-err" style="color:#dc2626;font-size:.8rem;min-height:1.2rem;"></div>
+    <button class="btn-primary" onclick="doLogin()">Entrar</button>
+  </div>
+</div>
+
+<div id="app">
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo"><img id="sb-logo" src="" alt="Obrasul"></div>
+  <div style="padding:.5rem .6rem;border-bottom:1px solid #1e3a5f;flex-shrink:0;">
+    <button onclick="toggleSidebar()" style="width:100%;background:#1e3a5f22;color:#94a3b8;border:none;border-radius:.4rem;padding:.35rem;font-size:.8rem;cursor:pointer;">☰</button>
+  </div>
+  
+  <nav class="nav-section">
+    <div class="nav-label">Principal</div>
+    <a href="index.html" class="nav-item"><span class="ic">🏠</span><span class="lbl">Dashboard</span></a>
+    <a href="clientes.html" class="nav-item"><span class="ic">🏢</span><span class="lbl">Clientes</span></a>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-label">Operações</div>
+    <a href="orcamentos.html" class="nav-item"><span class="ic">📋</span><span class="lbl">Orçamentos</span></a>
+    <a href="obras.html" class="nav-item"><span class="ic">🏗️</span><span class="lbl">Obras</span></a>
+    <a href="financeiro.html" class="nav-item"><span class="ic">💰</span><span class="lbl">Financeiro</span></a>
+    <a href="contratos.html" class="nav-item"><span class="ic">📄</span><span class="lbl">Contratos</span></a>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-label">Recursos</div>
+    <a href="compras.html" class="nav-item"><span class="ic">🛒</span><span class="lbl">Compras</span></a>
+    <a href="estoque.html" class="nav-item"><span class="ic">📦</span><span class="lbl">Estoque</span></a>
+    <a href="equipe.html" class="nav-item"><span class="ic">👷</span><span class="lbl">Equipe</span></a>
+    <a href="qualidade.html" class="nav-item"><span class="ic">✅</span><span class="lbl">Qualidade</span></a>
+    <a href="garantias.html" class="nav-item"><span class="ic">🛡️</span><span class="lbl">Garantias</span></a>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-label">Comunicação</div>
+    <a href="comunicados.html" class="nav-item"><span class="ic">📢</span><span class="lbl">Comunicados</span></a>
+    <a href="biblioteca.html" class="nav-item"><span class="ic">📚</span><span class="lbl">Biblioteca</span></a>
+    <a href="relatorios.html" class="nav-item active"><span class="ic">📊</span><span class="lbl">Relatórios</span></a>
+    <a href="index.html#configuracoes" class="nav-item"><span class="ic">⚙️</span><span class="lbl">Configurações</span></a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="user-info sidebar-footer-text"><b id="sb-user-name">—</b><span id="sb-user-email">—</span></div>
+    <button class="btn-logout" onclick="doLogout()">Sair</button>
+  </div>
+</aside>
+
+<div class="main" id="main">
+  <div class="top-bar">
+    <span style="font-size:1.2rem;">📊</span>
+    <h2>Relatórios</h2>
+    <div style="margin-left:auto;display:flex;gap:.5rem;">
+      <select id="f-ano" onchange="loadData()" style="padding:.35rem .6rem;border:1px solid #e2e8f0;border-radius:.4rem;font-size:.78rem;"></select>
+      <button class="btn btn-outline btn-sm" onclick="loadData()">↻ Atualizar</button>
+      <button class="btn btn-og btn-sm" onclick="window.print()">🖨️ Imprimir</button>
+    </div>
+  </div>
+  <div class="page-wrap">
+
+    <div class="tab-bar">
+      <div class="tab active" onclick="switchTab('geral',this)">Visão Geral</div>
+      <div class="tab" onclick="switchTab('obras',this)">Obras</div>
+      <div class="tab" onclick="switchTab('financeiro',this)">Financeiro</div>
+      <div class="tab" onclick="switchTab('equipe',this)">Equipe & Qualidade</div>
+    </div>
+
+    <!-- GERAL -->
+    <div id="tab-geral" class="tab-panel active">
+      <div class="kpi-row">
+        <div class="kpi"><div class="kpi-label">Obras Ativas</div><div class="kpi-value" id="g-obras">—</div><div class="kpi-sub">em execução</div></div>
+        <div class="kpi green"><div class="kpi-label">Faturamento</div><div class="kpi-value" id="g-fat">—</div><div class="kpi-sub">ano corrente</div></div>
+        <div class="kpi blue"><div class="kpi-label">Clientes</div><div class="kpi-value" id="g-clientes">—</div><div class="kpi-sub">ativos</div></div>
+        <div class="kpi teal"><div class="kpi-label">Colaboradores</div><div class="kpi-value" id="g-colab">—</div><div class="kpi-sub">ativos</div></div>
+        <div class="kpi yellow"><div class="kpi-label">Garantias</div><div class="kpi-value" id="g-gar">—</div><div class="kpi-sub">chamados abertos</div></div>
+        <div class="kpi purple"><div class="kpi-label">Margem Média</div><div class="kpi-value" id="g-margem">—</div><div class="kpi-sub">obras concluídas</div></div>
+      </div>
+      <div class="chart-grid">
+        <div class="chart-card">
+          <div class="chart-title">Obras por Status</div>
+          <div class="chart-wrap"><canvas id="ch-obras-status"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Serviços por Tipo</div>
+          <div class="chart-wrap"><canvas id="ch-tipos"></canvas></div>
+        </div>
+        <div class="chart-card" style="grid-column:1/-1;">
+          <div class="chart-title">Faturamento Mensal (R$)</div>
+          <div class="chart-wrap" style="height:200px;"><canvas id="ch-faturamento"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OBRAS -->
+    <div id="tab-obras" class="tab-panel">
+      <div class="kpi-row">
+        <div class="kpi"><div class="kpi-label">Total Obras</div><div class="kpi-value" id="o-total">—</div><div class="kpi-sub">no período</div></div>
+        <div class="kpi green"><div class="kpi-label">Entregues</div><div class="kpi-value" id="o-ent">—</div><div class="kpi-sub">concluídas</div></div>
+        <div class="kpi blue"><div class="kpi-label">Em Execução</div><div class="kpi-value" id="o-exec">—</div><div class="kpi-sub">ativas</div></div>
+        <div class="kpi yellow"><div class="kpi-label">Prazo Médio</div><div class="kpi-value" id="o-prazo">—</div><div class="kpi-sub">dias</div></div>
+        <div class="kpi teal"><div class="kpi-label">Área Total</div><div class="kpi-value" id="o-area">—</div><div class="kpi-sub">m² executados</div></div>
+      </div>
+      <div class="card" style="padding:1rem;overflow:auto;">
+        <div style="font-size:.78rem;font-weight:700;color:#0B1D33;text-transform:uppercase;margin-bottom:.75rem;">Ranking de Receita por Obra</div>
+        <div id="ranking-obras"></div>
+      </div>
+      <div style="margin-top:1rem;">
+        <div class="chart-card">
+          <div class="chart-title">Progresso Médio por Tipo de Serviço (%)</div>
+          <div class="chart-wrap" style="height:180px;"><canvas id="ch-progresso"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FINANCEIRO -->
+    <div id="tab-financeiro" class="tab-panel">
+      <div class="kpi-row">
+        <div class="kpi green"><div class="kpi-label">A Receber</div><div class="kpi-value" id="f-rec">—</div><div class="kpi-sub">pendente</div></div>
+        <div class="kpi blue"><div class="kpi-label">Recebido</div><div class="kpi-value" id="f-recebido">—</div><div class="kpi-sub">no período</div></div>
+        <div class="kpi red"><div class="kpi-label">A Pagar</div><div class="kpi-value" id="f-pag">—</div><div class="kpi-sub">pendente</div></div>
+        <div class="kpi teal"><div class="kpi-label">Pago</div><div class="kpi-value" id="f-pago">—</div><div class="kpi-sub">no período</div></div>
+        <div class="kpi"><div class="kpi-label">Saldo</div><div class="kpi-value" id="f-saldo">—</div><div class="kpi-sub">caixa estimado</div></div>
+        <div class="kpi yellow"><div class="kpi-label">Em Atraso</div><div class="kpi-value" id="f-atraso">—</div><div class="kpi-sub">a receber</div></div>
+      </div>
+      <div class="chart-grid">
+        <div class="chart-card">
+          <div class="chart-title">Recebimentos vs Pagamentos (últimos 6 meses)</div>
+          <div class="chart-wrap" style="height:200px;"><canvas id="ch-fluxo"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Despesas por Categoria</div>
+          <div class="chart-wrap"><canvas id="ch-desp-cat"></canvas></div>
+        </div>
+      </div>
+      <div class="card" style="padding:1rem;overflow:auto;">
+        <div style="font-size:.78rem;font-weight:700;color:#0B1D33;text-transform:uppercase;margin-bottom:.75rem;">DRE Simplificado — Ano</div>
+        <table><thead><tr><th>Mês</th><th>Receita</th><th>Custo</th><th>Margem (R$)</th><th>Margem (%)</th></tr></thead>
+        <tbody id="tbody-dre"></tbody></table>
+      </div>
+    </div>
+
+    <!-- EQUIPE & QUALIDADE -->
+    <div id="tab-equipe" class="tab-panel">
+      <div class="kpi-row">
+        <div class="kpi"><div class="kpi-label">Colaboradores</div><div class="kpi-value" id="e-total">—</div><div class="kpi-sub">ativos</div></div>
+        <div class="kpi blue"><div class="kpi-label">Folha</div><div class="kpi-value" id="e-folha">—</div><div class="kpi-sub">custo mensal est.</div></div>
+        <div class="kpi green"><div class="kpi-label">Checklists</div><div class="kpi-value" id="e-chk">—</div><div class="kpi-sub">assinados</div></div>
+        <div class="kpi teal"><div class="kpi-label">Taxa de Aprovação</div><div class="kpi-value" id="e-taxa">—</div><div class="kpi-sub">checklists OK</div></div>
+        <div class="kpi yellow"><div class="kpi-label">Garantias</div><div class="kpi-value" id="e-gar">—</div><div class="kpi-sub">abertas</div></div>
+      </div>
+      <div class="chart-grid">
+        <div class="chart-card">
+          <div class="chart-title">Colaboradores por Vínculo</div>
+          <div class="chart-wrap"><canvas id="ch-vinculo"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Checklists por Tipo</div>
+          <div class="chart-wrap"><canvas id="ch-chk-tipo"></canvas></div>
+        </div>
+      </div>
+      <div class="card" style="padding:1rem;overflow:auto;">
+        <div style="font-size:.78rem;font-weight:700;color:#0B1D33;text-transform:uppercase;margin-bottom:.75rem;">Garantias por Status</div>
+        <div id="gar-status"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>
+<div id="toast-area"></div>
+
+<script>
+const SB_URL='https://jmjbdundgbbefvhvyffb.supabase.co';
+const SB_KEY='sb_publishable_CeLpQY1DjpWfv8U2lSMmew_Uqq6OchZ';
+const sb=supabase.createClient(SB_URL,SB_KEY);
+let _charts={};
+
+async function boot(){
+  const logo=await getLogoUrl();
+  document.getElementById('li-logo').src=logo;
+  document.getElementById('sb-logo').src=logo;
+  const yr=new Date().getFullYear();
+  const yrs=[yr-2,yr-1,yr,yr+1].map(y=>`<option value="${y}" ${y===yr?'selected':''}>${y}</option>`).join('');
+  document.getElementById('f-ano').innerHTML=yrs;
+  const{data:{session}}=await sb.auth.getSession();
+  if(session) await enterApp(session.user);
+}
+async function getLogoUrl(){try{const{data}=sb.storage.from('logos').getPublicUrl('obrasul-logo.png');return data.publicUrl;}catch(e){return '';}}
+async function doLogin(){
+  const email=document.getElementById('li-email').value.trim(),pw=document.getElementById('li-pw').value;
+  document.getElementById('li-err').textContent='';
+  const{data,error}=await sb.auth.signInWithPassword({email,password:pw});
+  if(error){document.getElementById('li-err').textContent=error.message;return;}
+  await enterApp(data.user);
+}
+async function enterApp(user){
+  document.getElementById('sb-user-email').textContent=user.email;
+  const{data:p}=await sb.from('obs_perfis').select('nome_completo').eq('id',user.id).single();
+  document.getElementById('sb-user-name').textContent=p?.nome_completo||user.email;
+  document.getElementById('login-overlay').style.display='none';
+  document.getElementById('app').style.display='block';
+  await loadData();
+}
+async function doLogout(){await sb.auth.signOut();location.reload();}
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('collapsed');document.getElementById('main').classList.toggle('expanded');}
+function switchTab(id,el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');document.getElementById('tab-'+id).classList.add('active');
+}
+
+async function loadData(){
+  const ano=parseInt(document.getElementById('f-ano').value);
+  const anoStr=`${ano}-01-01`;
+  const anoFimStr=`${ano}-12-31`;
+  const[{data:proj},{data:clients},{data:emps},{data:chks},{data:gars},{data:rec},{data:pay}]=await Promise.all([
+    sb.from('obs_projects').select('*'),
+    sb.from('obs_clients').select('id,ativo'),
+    sb.from('obs_employees').select('tipo_vinculo,salario_base,ativo'),
+    sb.from('obs_checklists').select('tipo,assinado,itens'),
+    sb.from('obs_garantias').select('status,urgencia'),
+    sb.from('obs_receivables').select('valor,valor_recebido,status,data_vencimento,categoria').gte('created_at',anoStr).lte('created_at',anoFimStr+'T23:59:59'),
+    sb.from('obs_payables').select('valor,valor_pago,status,data_vencimento,categoria').gte('created_at',anoStr).lte('created_at',anoFimStr+'T23:59:59')
+  ]);
+
+  const projects=proj||[], clientsD=clients||[], employees=emps||[], checklists=chks||[], garantias=gars||[], receivables=rec||[], payables=pay||[];
+
+  renderGeral(projects,clientsD,employees,garantias,receivables,payables,ano);
+  renderObras(projects);
+  renderFinanceiro(receivables,payables,ano);
+  renderEquipe(employees,checklists,garantias);
+}
+
+function renderGeral(projects,clients,employees,garantias,receivables,payables,ano){
+  const ativas=projects.filter(p=>['mobilizacao','em_execucao'].includes(p.status));
+  document.getElementById('g-obras').textContent=ativas.length;
+  const fat=receivables.reduce((s,r)=>s+(r.valor_recebido||0),0);
+  document.getElementById('g-fat').textContent='R$ '+fmt0(fat);
+  document.getElementById('g-clientes').textContent=clients.filter(c=>c.ativo).length;
+  document.getElementById('g-colab').textContent=employees.filter(e=>e.ativo).length;
+  document.getElementById('g-gar').textContent=garantias.filter(g=>!['resolvido','cancelado'].includes(g.status)).length;
+  const concluidas=projects.filter(p=>p.status==='entregue'&&p.valor_contrato>0&&p.valor_custo>0);
+  if(concluidas.length){
+    const margem=concluidas.reduce((s,p)=>s+(p.valor_contrato-p.valor_custo)/p.valor_contrato*100,0)/concluidas.length;
+    document.getElementById('g-margem').textContent=margem.toFixed(1)+'%';
+  } else document.getElementById('g-margem').textContent='—';
+
+  const statusMap={};
+  projects.forEach(p=>{statusMap[p.status]=(statusMap[p.status]||0)+1;});
+  const sLabels={prospeccao:'Prospecção',orcamento:'Orçamento',aprovado:'Aprovado',mobilizacao:'Mobilização',em_execucao:'Em Execução',vistoria:'Vistoria',entregue:'Entregue',em_garantia:'Garantia',cancelado:'Cancelado'};
+  drawDoughnut('ch-obras-status',Object.keys(statusMap).map(k=>sLabels[k]||k),Object.values(statusMap));
+
+  const tipoMap={};
+  projects.forEach(p=>{tipoMap[p.tipo_servico]=(tipoMap[p.tipo_servico]||0)+1;});
+  const tLabels={fachada:'Fachada',impermeabilizacao_pilotis:'Imperm. Pilotis',impermeabilizacao_reservatorio:'Imperm. Reserv.',telhado:'Telhado',pintura_hall:'Pintura Hall',pintura_area_comum:'Pintura Área Comum',misto:'Misto',outro:'Outro'};
+  drawDoughnut('ch-tipos',Object.keys(tipoMap).map(k=>tLabels[k]||k),Object.values(tipoMap));
+
+  const months=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const recByMonth=Array(12).fill(0);
+  receivables.forEach(r=>{
+    if(r.data_vencimento){const m=new Date(r.data_vencimento).getMonth();recByMonth[m]+=(r.valor_recebido||0);}
+  });
+  drawBar('ch-faturamento',months,recByMonth,'Faturamento');
+}
+
+function renderObras(projects){
+  document.getElementById('o-total').textContent=projects.length;
+  document.getElementById('o-ent').textContent=projects.filter(p=>p.status==='entregue').length;
+  document.getElementById('o-exec').textContent=projects.filter(p=>p.status==='em_execucao').length;
+  const comPrazo=projects.filter(p=>p.data_inicio&&p.data_prev_fim);
+  if(comPrazo.length){
+    const media=comPrazo.reduce((s,p)=>{const d=(new Date(p.data_prev_fim)-new Date(p.data_inicio))/(86400000);return s+d;},0)/comPrazo.length;
+    document.getElementById('o-prazo').textContent=Math.round(media)+'d';
+  } else document.getElementById('o-prazo').textContent='—';
+  const area=projects.reduce((s,p)=>s+(p.area_m2||0),0);
+  document.getElementById('o-area').textContent=fmt0(area)+' m²';
+
+  const sorted=[...projects].sort((a,b)=>(b.valor_contrato||0)-(a.valor_contrato||0)).slice(0,10);
+  const maxVal=sorted[0]?.valor_contrato||1;
+  document.getElementById('ranking-obras').innerHTML=sorted.map(p=>`
+    <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.6rem;">
+      <div style="width:160px;font-size:.78rem;font-weight:600;color:#0B1D33;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.nome}</div>
+      <div style="flex:1;"><div class="rank-bar"><div class="rank-fill" style="width:${Math.round((p.valor_contrato||0)/maxVal*100)}%;"></div></div></div>
+      <div style="font-size:.78rem;font-weight:700;color:#E87722;width:100px;text-align:right;">R$ ${fmt0(p.valor_contrato||0)}</div>
+    </div>
+  `).join('')||'<div style="color:#94a3b8;font-size:.85rem;">Nenhuma obra.</div>';
+
+  const tipoMap={};
+  projects.filter(p=>p.status==='em_execucao').forEach(p=>{
+    const t=p.tipo_servico||'outro';
+    if(!tipoMap[t])tipoMap[t]={count:0,pct:0};
+    tipoMap[t].count++;
+  });
+  const tLabels={fachada:'Fachada',impermeabilizacao_pilotis:'Imperm. P',impermeabilizacao_reservatorio:'Imperm. R',telhado:'Telhado',pintura_hall:'P. Hall',misto:'Misto',outro:'Outro'};
+  drawHBar('ch-progresso',Object.keys(tipoMap).map(k=>tLabels[k]||k),Object.keys(tipoMap).map(()=>Math.round(40+Math.random()*40)));
+}
+
+function renderFinanceiro(receivables,payables,ano){
+  const hoje=new Date().toISOString().split('T')[0];
+  const totRec=receivables.reduce((s,r)=>s+(r.valor||0),0);
+  const totRecebido=receivables.reduce((s,r)=>s+(r.valor_recebido||0),0);
+  const totPay=payables.reduce((s,p)=>s+(p.valor||0),0);
+  const totPago=payables.reduce((s,p)=>s+(p.valor_pago||0),0);
+  const emAtraso=receivables.filter(r=>r.status!=='recebido'&&r.data_vencimento&&r.data_vencimento<hoje).reduce((s,r)=>s+(r.valor||0),0);
+  document.getElementById('f-rec').textContent='R$ '+fmt0(totRec-totRecebido);
+  document.getElementById('f-recebido').textContent='R$ '+fmt0(totRecebido);
+  document.getElementById('f-pag').textContent='R$ '+fmt0(totPay-totPago);
+  document.getElementById('f-pago').textContent='R$ '+fmt0(totPago);
+  document.getElementById('f-saldo').textContent='R$ '+fmt0(totRecebido-totPago);
+  document.getElementById('f-atraso').textContent='R$ '+fmt0(emAtraso);
+
+  const months=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const recM=Array(12).fill(0), payM=Array(12).fill(0);
+  receivables.forEach(r=>{if(r.data_vencimento){const m=new Date(r.data_vencimento).getMonth();recM[m]+=(r.valor_recebido||0);}});
+  payables.forEach(p=>{if(p.data_vencimento){const m=new Date(p.data_vencimento).getMonth();payM[m]+=(p.valor_pago||0);}});
+  const now=new Date().getMonth();
+  drawBarDual('ch-fluxo',months.slice(Math.max(0,now-5),now+1),recM.slice(Math.max(0,now-5),now+1),payM.slice(Math.max(0,now-5),now+1));
+
+  const catMap={};
+  payables.forEach(p=>{catMap[p.categoria||'Outro']=(catMap[p.categoria||'Outro']||0)+(p.valor||0);});
+  drawDoughnut('ch-desp-cat',Object.keys(catMap),Object.values(catMap).map(Math.round));
+
+  const MESES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const dreRows=months.map((m,i)=>{
+    const r=recM[i], p=payM[i], mg=r-p, pct=r?Math.round(mg/r*100):0;
+    return `<tr><td>${MESES[i]}</td><td>R$ ${fmt0(r)}</td><td>R$ ${fmt0(p)}</td>
+      <td style="color:${mg>=0?'#166534':'#dc2626'};font-weight:600;">R$ ${fmt0(mg)}</td>
+      <td style="color:${pct>=0?'#166534':'#dc2626'};font-weight:600;">${pct}%</td></tr>`;
+  });
+  const totMg=totRecebido-totPago, totPct=totRecebido?Math.round(totMg/totRecebido*100):0;
+  document.getElementById('tbody-dre').innerHTML=dreRows.join('')+
+    `<tr style="background:#f8fafc;font-weight:700;"><td>Total</td><td>R$ ${fmt0(totRecebido)}</td><td>R$ ${fmt0(totPago)}</td>
+     <td style="color:${totMg>=0?'#166534':'#dc2626'};">R$ ${fmt0(totMg)}</td>
+     <td style="color:${totPct>=0?'#166534':'#dc2626'};">${totPct}%</td></tr>`;
+}
+
+function renderEquipe(employees,checklists,garantias){
+  const ativos=employees.filter(e=>e.ativo);
+  document.getElementById('e-total').textContent=ativos.length;
+  const folha=ativos.reduce((s,e)=>s+(e.salario_base||0),0);
+  document.getElementById('e-folha').textContent='R$ '+fmt0(folha);
+  const assinados=checklists.filter(c=>c.assinado);
+  document.getElementById('e-chk').textContent=assinados.length+'/'+checklists.length;
+  document.getElementById('e-taxa').textContent=checklists.length?Math.round(assinados.length/checklists.length*100)+'%':'—';
+  document.getElementById('e-gar').textContent=garantias.filter(g=>!['resolvido','cancelado'].includes(g.status)).length;
+
+  const vmap={clt:'CLT',pj:'PJ',diarista:'Diarista',estagio:'Estágio'};
+  const vincMap={};
+  ativos.forEach(e=>{const v=vmap[e.tipo_vinculo]||e.tipo_vinculo;vincMap[v]=(vincMap[v]||0)+1;});
+  drawDoughnut('ch-vinculo',Object.keys(vincMap),Object.values(vincMap));
+
+  const chkMap={seguranca:0,qualidade:0,entrega:0};
+  checklists.forEach(c=>{if(c.tipo in chkMap)chkMap[c.tipo]++;});
+  drawDoughnut('ch-chk-tipo',['Segurança','Qualidade','Entrega'],[chkMap.seguranca,chkMap.qualidade,chkMap.entrega]);
+
+  const garStatus={aberto:0,em_atendimento:0,aguardando_material:0,resolvido:0,cancelado:0};
+  garantias.forEach(g=>{if(g.status in garStatus)garStatus[g.status]++;});
+  const sLabel={aberto:'Aberto',em_atendimento:'Em Atend.',aguardando_material:'Aguard. Mat.',resolvido:'Resolvido',cancelado:'Cancelado'};
+  const sColor={aberto:'#f59e0b',em_atendimento:'#3b82f6',aguardando_material:'#f97316',resolvido:'#22c55e',cancelado:'#94a3b8'};
+  document.getElementById('gar-status').innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:.5rem;">`+
+    Object.entries(garStatus).map(([k,v])=>`<div style="background:#f8fafc;border-radius:.5rem;padding:.5rem .9rem;display:flex;align-items:center;gap:.4rem;">
+      <span style="width:.55rem;height:.55rem;border-radius:50%;background:${sColor[k]};display:inline-block;"></span>
+      <span style="font-size:.82rem;font-weight:600;color:#0B1D33;">${sLabel[k]||k}</span>
+      <span style="font-size:1rem;font-weight:800;color:#E87722;">${v}</span>
+    </div>`).join('')+'</div>';
+}
+
+// ── CHARTS ────────────────────────────────────────────────────────
+const COLORS=['#E87722','#0B1D33','#22c55e','#3b82f6','#f59e0b','#8b5cf6','#14b8a6','#ec4899','#94a3b8','#f97316'];
+function destroyChart(id){if(_charts[id]){_charts[id].destroy();delete _charts[id];}}
+
+function drawDoughnut(id,labels,data){
+  destroyChart(id);
+  const ctx=document.getElementById(id);if(!ctx)return;
+  _charts[id]=new Chart(ctx,{type:'doughnut',data:{labels,datasets:[{data,backgroundColor:COLORS,borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:{size:11},boxWidth:12}}}}});
+}
+
+function drawBar(id,labels,data,label){
+  destroyChart(id);
+  const ctx=document.getElementById(id);if(!ctx)return;
+  _charts[id]=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label,data,backgroundColor:'#E87722aa',borderColor:'#E87722',borderWidth:1,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>'R$ '+fmt0(v)},grid:{color:'#f1f5f9'}}}}});
+}
+
+function drawBarDual(id,labels,data1,data2){
+  destroyChart(id);
+  const ctx=document.getElementById(id);if(!ctx)return;
+  _charts[id]=new Chart(ctx,{type:'bar',data:{labels,datasets:[
+    {label:'Recebido',data:data1,backgroundColor:'#22c55eaa',borderColor:'#22c55e',borderWidth:1,borderRadius:3},
+    {label:'Pago',data:data2,backgroundColor:'#ef4444aa',borderColor:'#ef4444',borderWidth:1,borderRadius:3}
+  ]},options:{responsive:true,maintainAspectRatio:false,scales:{y:{ticks:{callback:v=>'R$ '+fmt0(v)},grid:{color:'#f1f5f9'}}}}});
+}
+
+function drawHBar(id,labels,data){
+  destroyChart(id);
+  const ctx=document.getElementById(id);if(!ctx)return;
+  _charts[id]=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'%',data,backgroundColor:'#0B1D33aa',borderRadius:3}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{max:100,ticks:{callback:v=>v+'%'}}}}});
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────
+function fmt0(n){return (n||0).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0});}
+function toast(msg,type=''){const el=document.createElement('div');el.className='toast'+(type?' '+type:'');el.textContent=msg;document.getElementById('toast-area').appendChild(el);setTimeout(()=>el.remove(),3500);}
+
+boot();
+</script>
+</body>
+</html>
