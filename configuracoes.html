@@ -364,14 +364,14 @@ async function enterApp(user){
   document.getElementById('me-email').value=user.email;
   const{data:p}=await sb.from('obs_perfis').select('*').eq('id',user.id).single();
   _perfil=p;
-  document.getElementById('sb-user-name').textContent=p?.nome_completo||user.email;
+  document.getElementById('sb-user-name').textContent=p?.nome||user.email;
   if(p){
-    document.getElementById('me-nome').value=p.nome_completo||'';
+    document.getElementById('me-nome').value=p.nome||'';
     document.getElementById('me-cargo').value=p.cargo||'';
     document.getElementById('me-tel').value=p.telefone||'';
   }
   document.getElementById('login-overlay').style.display='none';
-  if(!_unitCheck(data)){return;}
+  if(!_unitCheck(p)){return;}
   _injectUnitLinks();
   document.getElementById('app').style.display='block';
   loadEmpresa(); loadUsers(); loadStats();
@@ -469,14 +469,14 @@ function compressImage(file, maxBytes){
 
 // ── USUÁRIOS ──────────────────────────────────────────────────────
 async function loadUsers(){
-  const{data}=await sb.from('obs_perfis').select('*').order('nome_completo');
+  const{data}=await sb.from('obs_perfis').select('*').order('nome');
   _users=data||[];
   const tbody=document.getElementById('tbody-users');
   if(!_users.length){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:1.5rem;">Nenhum usuário.</td></tr>';return;}
   tbody.innerHTML=_users.map(u=>`<tr>
     <td><div style="display:flex;align-items:center;gap:.5rem;">
-      <div class="avatar">${(u.nome_completo||u.email||'?')[0].toUpperCase()}</div>
-      <span style="font-weight:600;">${u.nome_completo||'—'}</span>
+      <div class="avatar">${(u.nome||u.email||'?')[0].toUpperCase()}</div>
+      <span style="font-weight:600;">${u.nome||'—'}</span>
     </div></td>
     <td style="font-size:.78rem;">${u.email||'—'}</td>
     <td style="font-size:.78rem;">${u.cargo||'—'}</td>
@@ -507,10 +507,10 @@ async function saveUser(){
     const{data:d2,error:e2}=await sb.auth.signUp({email,password:pw});
     if(e2){toast(e2.message,'e');return;}
     if(d2?.user){
-      await sb.from('obs_perfis').upsert({id:d2.user.id,nome_completo:nome,email,cargo,role,ativo:true},{onConflict:'id'});
+      await sb.from('obs_perfis').upsert({id:d2.user.id,nome:nome,email,cargo,role,ativo:true},{onConflict:'id'});
     }
   } else {
-    await sb.from('obs_perfis').upsert({id:data.user.id,nome_completo:nome,email,cargo,role,ativo:true},{onConflict:'id'});
+    await sb.from('obs_perfis').upsert({id:data.user.id,nome:nome,email,cargo,role,ativo:true},{onConflict:'id'});
   }
   toast('Usuário criado','s');closeModal();await loadUsers();
 }
@@ -530,7 +530,7 @@ async function savePerfil(){
   const cargo=document.getElementById('me-cargo').value.trim();
   const tel=document.getElementById('me-tel').value.trim();
   if(!nome){toast('Nome obrigatório','w');return;}
-  const{error}=await sb.from('obs_perfis').update({nome_completo:nome,cargo,telefone:tel}).eq('id',_userId);
+  const{error}=await sb.from('obs_perfis').update({nome:nome,cargo,telefone:tel}).eq('id',_userId);
   if(error){toast(error.message,'e');return;}
   document.getElementById('sb-user-name').textContent=nome;
   toast('Perfil atualizado','s');

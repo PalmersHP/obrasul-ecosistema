@@ -379,10 +379,10 @@ async function doLogin(){
 
 async function enterApp(user){
   document.getElementById('sb-user-email').textContent=user.email;
-  const{data:p}=await sb.from('obs_perfis').select('nome_completo').eq('id',user.id).single();
-  document.getElementById('sb-user-name').textContent=p?.nome_completo||user.email;
+  const{data:p}=await sb.from('obs_perfis').select('nome,role').eq('id',user.id).single();
+  document.getElementById('sb-user-name').textContent=p?.nome||user.email;
   document.getElementById('login-overlay').style.display='none';
-  if(!_unitCheck(data)){return;}
+  if(!_unitCheck(p)){return;}
   _injectUnitLinks();
   document.getElementById('app').style.display='block';
   await loadData();
