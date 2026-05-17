@@ -18,9 +18,11 @@ body{font-family:"Segoe UI",system-ui,sans-serif;background:#f1f5f9;color:#1e293
 .btn-primary:hover{background:#d06918;}
 .sidebar{position:fixed;top:0;left:0;bottom:0;width:var(--sidebar);background:#0B1D33;display:flex;flex-direction:column;z-index:100;overflow-y:auto;transition:.25s;}
 .sidebar.collapsed{width:60px;}
-.sidebar-logo{padding:1rem;border-bottom:1px solid #1e3a5f;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
-.sidebar-logo img{width:140px;max-width:100%;object-fit:contain;transition:.25s;}
-.sidebar.collapsed .sidebar-logo img{width:32px;}
+.sidebar-logo{padding:.75rem .9rem;border-bottom:1px solid #1a3a5c;display:flex;align-items:center;flex-shrink:0;min-height:60px;}
+.sidebar-logo-img-wrap{background:#fff;border-radius:.5rem;padding:.35rem .6rem;display:flex;align-items:center;justify-content:center;overflow:hidden;width:100%;}
+.sidebar-logo-img-wrap img{height:2rem;object-fit:contain;width:100%;max-width:140px;}
+.sidebar.collapsed .sidebar-logo-img-wrap{padding:.35rem;width:auto;}
+.sidebar.collapsed .sidebar-logo-img-wrap img{max-width:2rem;}
 .sidebar.collapsed .nav-label,.sidebar.collapsed .nav-item span.lbl,.sidebar.collapsed .sidebar-footer-text{display:none;}
 .sidebar.collapsed .nav-item{justify-content:center;padding:.55rem 0;}
 .nav-section{padding:.5rem 0;flex-shrink:0;}
@@ -141,10 +143,11 @@ tr:hover td{background:#fafafa;}
     <a href="orcamentos.html" class="nav-item"><span class="ic">📋</span><span class="lbl">Orçamentos</span></a>
     <a href="obras.html" class="nav-item"><span class="ic">🏗️</span><span class="lbl">Obras</span></a>
     <a href="financeiro.html" class="nav-item"><span class="ic">💰</span><span class="lbl">Financeiro</span></a>
-    <a href="contratos.html" class="nav-item"><span class="ic">📄</span><span class="lbl">Contratos</span></a>
+    <a href="portal-sindico.html" class="nav-item"><span class="ic">🔑</span><span class="lbl">Painel do Síndico</span></a>
   </nav>
   <nav class="nav-section">
     <div class="nav-label">Recursos</div>
+    <a href="contratos.html" class="nav-item"><span class="ic">📄</span><span class="lbl">Contratos</span></a>
     <a href="compras.html" class="nav-item"><span class="ic">🛒</span><span class="lbl">Compras</span></a>
     <a href="estoque.html" class="nav-item"><span class="ic">📦</span><span class="lbl">Estoque</span></a>
     <a href="equipe.html" class="nav-item"><span class="ic">👷</span><span class="lbl">Equipe</span></a>
@@ -158,7 +161,7 @@ tr:hover td{background:#fafafa;}
     <a href="relatorios.html" class="nav-item"><span class="ic">📊</span><span class="lbl">Relatórios</span></a>
     <a href="configuracoes.html" class="nav-item"><span class="ic">⚙️</span><span class="lbl">Configurações</span></a>
   </nav>
-  <div class="sidebar-footer">
+<div class="sidebar-footer">
     <div class="user-info sidebar-footer-text">
       <b id="sb-user-name">—</b>
       <span id="sb-user-email">—</span>
@@ -226,10 +229,14 @@ tr:hover td{background:#fafafa;}
         <input type="text" id="f-search-todos" placeholder="Buscar…" style="min-width:180px;" oninput="renderTodos()">
         <select id="f-status-todos" onchange="renderTodos()">
           <option value="">Todos os status</option>
-          <option value="aberto">Aberto</option>
-          <option value="em_atendimento">Em Atendimento</option>
+          <option value="recebido">Recebido</option>
+          <option value="analise">Em Análise</option>
+          <option value="vistoria">Vistoria</option>
+          <option value="procedente">Procedente</option>
+          <option value="improcedente">Improcedente</option>
+          <option value="em_execucao">Em Execução</option>
           <option value="aguardando_material">Aguardando Material</option>
-          <option value="resolvido">Resolvido</option>
+          <option value="encerrado">Encerrado</option>
           <option value="cancelado">Cancelado</option>
         </select>
       </div>
@@ -295,10 +302,14 @@ tr:hover td{background:#fafafa;}
       <div class="field"><label>Responsável Interno</label><input id="f-resp" type="text" placeholder="Técnico ou engenheiro responsável"></div>
       <div class="field"><label>Status</label>
         <select id="f-status-m">
-          <option value="aberto">Aberto</option>
-          <option value="em_atendimento">Em Atendimento</option>
+          <option value="recebido">Recebido</option>
+          <option value="analise">Em Análise</option>
+          <option value="vistoria">Vistoria Agendada</option>
+          <option value="procedente">Procedente — Plano de Ação</option>
+          <option value="improcedente">Improcedente</option>
+          <option value="em_execucao">Em Execução</option>
           <option value="aguardando_material">Aguardando Material</option>
-          <option value="resolvido">Resolvido</option>
+          <option value="encerrado">Encerrado</option>
           <option value="cancelado">Cancelado</option>
         </select>
       </div>
@@ -319,6 +330,27 @@ const SB_URL='https://jmjbdundgbbefvhvyffb.supabase.co';
 const SB_KEY='sb_publishable_CeLpQY1DjpWfv8U2lSMmew_Uqq6OchZ';
 const sb=supabase.createClient(SB_URL,SB_KEY);
 
+// ── Multi-unidade bootstrap ───────────────────────────
+const _unitSlug = new URLSearchParams(location.search).get('unit') || '';
+function _injectUnitLinks() {
+  if (!_unitSlug) return;
+  document.querySelectorAll('a[href]').forEach(a => {
+    const href = a.getAttribute('href');
+    if (!href || href.startsWith('http') || href.startsWith('#') || href.startsWith('javascript') || href.startsWith('portal') || href.startsWith('mailto')) return;
+    if (href.includes('?unit=')) return;
+    const sep = href.includes('?') ? '&' : '?';
+    a.setAttribute('href', href + sep + 'unit=' + _unitSlug);
+  });
+}
+function _unitCheck(perfil) {
+  // Superadmin não deve acessar páginas de unidade diretamente
+  if (perfil?.role === 'superadmin') { location.href = 'index.html?unit=admin'; return false; }
+  // Sem slug na URL → redireciona para index com slug vazio (vai tratar lá)
+  if (!_unitSlug) { location.href = 'index.html'; return false; }
+  return true;
+}
+
+
 let _chamados=[];
 let _obras=[];
 let _editId=null;
@@ -327,10 +359,9 @@ let _counter=1;
 // ── AUTH ──────────────────────────────────────────────────────────
 async function boot(){
   const logo=await getLogoUrl();
-  document.getElementById('li-logo').src=logo;
-  document.getElementById('sb-logo').src=logo;
   const{data:{session}}=await sb.auth.getSession();
   if(session) await enterApp(session.user);
+  else location.href='index.html'+(_unitSlug?'?unit='+_unitSlug:'');
 }
 
 async function getLogoUrl(){
@@ -351,16 +382,18 @@ async function enterApp(user){
   const{data:p}=await sb.from('obs_perfis').select('nome_completo').eq('id',user.id).single();
   document.getElementById('sb-user-name').textContent=p?.nome_completo||user.email;
   document.getElementById('login-overlay').style.display='none';
+  if(!_unitCheck(data)){return;}
+  _injectUnitLinks();
   document.getElementById('app').style.display='block';
   await loadData();
 }
 
-async function doLogout(){await sb.auth.signOut();location.reload();}
+async function doLogout(){await sb.auth.signOut();location.href='index.html'+(_unitSlug?'?unit='+_unitSlug:'');}
 
 function toggleSidebar(){
   document.getElementById('sidebar').classList.toggle('collapsed');
   document.getElementById('main').classList.toggle('expanded');
-}
+localStorage.setItem('obs_sidebar',document.getElementById('sidebar').classList.contains('collapsed')?'1':'0');}
 
 function switchTab(id,el){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
@@ -396,7 +429,7 @@ function populateObraSelects(){
 
 function updateKPIs(){
   const today=new Date().toISOString().split('T')[0];
-  const abertos=_chamados.filter(c=>!['resolvido','cancelado'].includes(c.status));
+  const abertos=_chamados.filter(c=>!['encerrado','improcedente','cancelado'].includes(c.status));
   const vencidos=abertos.filter(c=>c.prazo&&c.prazo<today);
   document.getElementById('k-total').textContent=_chamados.length;
   document.getElementById('k-abertos').textContent=abertos.length;
@@ -409,7 +442,7 @@ function updateKPIs(){
 function checkAlerts(){
   const today=new Date().toISOString().split('T')[0];
   const em7Dias=new Date(Date.now()+7*24*3600*1000).toISOString().split('T')[0];
-  const urgentes=_chamados.filter(c=>!['resolvido','cancelado'].includes(c.status)&&c.prazo&&c.prazo<=em7Dias);
+  const urgentes=_chamados.filter(c=>!['encerrado','improcedente','cancelado'].includes(c.status)&&c.prazo&&c.prazo<=em7Dias);
   const area=document.getElementById('alert-area');
   if(!urgentes.length){area.innerHTML='';return;}
   const vencidos=urgentes.filter(c=>c.prazo<today).length;
@@ -422,7 +455,7 @@ function renderAbertos(){
   const obra=document.getElementById('f-obra-ab').value;
   const tipo=document.getElementById('f-tipo-ab').value;
   const urgencia=document.getElementById('f-urgencia-ab').value;
-  let list=_chamados.filter(c=>!['resolvido','cancelado'].includes(c.status));
+  let list=_chamados.filter(c=>!['encerrado','improcedente','cancelado'].includes(c.status));
   if(search) list=list.filter(c=>(c.descricao||'').toLowerCase().includes(search)||(c.solicitante||'').toLowerCase().includes(search));
   if(obra) list=list.filter(c=>c.project_id===obra);
   if(tipo) list=list.filter(c=>c.tipo===tipo);
@@ -459,7 +492,7 @@ function renderObraDetail(){
   if(!projectId){container.innerHTML='<div style="padding:2rem;text-align:center;color:#94a3b8;font-size:.85rem;">Selecione uma obra para ver os chamados.</div>';return;}
   const list=_chamados.filter(c=>c.project_id===projectId);
   if(!list.length){container.innerHTML='<div style="padding:2rem;text-align:center;color:#94a3b8;font-size:.85rem;">Nenhum chamado nesta obra.</div>';return;}
-  const abertos=list.filter(c=>!['resolvido','cancelado'].includes(c.status)).length;
+  const abertos=list.filter(c=>!['encerrado','improcedente','cancelado'].includes(c.status)).length;
   container.innerHTML=`
     <div style="display:flex;gap:.75rem;margin-bottom:1rem;flex-wrap:wrap;">
       <div class="kpi" style="flex:1;min-width:120px;"><div class="kpi-label">Total</div><div class="kpi-value">${list.length}</div></div>
@@ -472,7 +505,7 @@ function renderObraDetail(){
 
 function chamadoCard(c){
   const today=new Date().toISOString().split('T')[0];
-  const vencido=c.prazo&&c.prazo<today&&!['resolvido','cancelado'].includes(c.status);
+  const vencido=c.prazo&&c.prazo<today&&!['encerrado','improcedente','cancelado'].includes(c.status);
   const urgente=c.urgencia==='alta';
   const extraClass=vencido?'vencido':urgente?'urgente':'';
   const obraNome=c.obs_projects?.nome||'—';
@@ -583,8 +616,8 @@ async function deleteChamado(){
 
 // ── HELPERS ───────────────────────────────────────────────────────
 function badgeStatus(s){
-  const map={aberto:'yellow',em_atendimento:'blue',aguardando_material:'orange',resolvido:'green',cancelado:'gray'};
-  const label={aberto:'Aberto',em_atendimento:'Em Atendimento',aguardando_material:'Aguard. Material',resolvido:'Resolvido',cancelado:'Cancelado'};
+  const map={recebido:'blue',analise:'purple',vistoria:'orange',procedente:'yellow',improcedente:'gray',em_execucao:'blue',aguardando_material:'orange',encerrado:'green',cancelado:'gray'};
+  const label={recebido:'Recebido',analise:'Análise',vistoria:'Vistoria',procedente:'Procedente',improcedente:'Improcedente',em_execucao:'Em Execução',aguardando_material:'Aguard. Material',encerrado:'Encerrado',cancelado:'Cancelado'};
   return `<span class="badge ${map[s]||'gray'}">${label[s]||s}</span>`;
 }
 
@@ -617,6 +650,9 @@ function toast(msg,type=''){
 }
 
 boot();
+
+// restore sidebar state
+(()=>{const _sc=localStorage.getItem('obs_sidebar')==='1';if(_sc){document.getElementById('sidebar')?.classList.add('collapsed');document.getElementById('main')?.classList.add('expanded');}})();
 </script>
 </body>
 </html>

@@ -18,9 +18,11 @@ body{font-family:"Segoe UI",system-ui,sans-serif;background:#f1f5f9;color:#1e293
 .btn-primary:hover{background:#d06918;}
 .sidebar{position:fixed;top:0;left:0;bottom:0;width:var(--sidebar);background:#0B1D33;display:flex;flex-direction:column;z-index:100;overflow-y:auto;transition:.25s;}
 .sidebar.collapsed{width:60px;}
-.sidebar-logo{padding:1rem;border-bottom:1px solid #1e3a5f;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
-.sidebar-logo img{width:140px;max-width:100%;object-fit:contain;transition:.25s;}
-.sidebar.collapsed .sidebar-logo img{width:32px;}
+.sidebar-logo{padding:.75rem .9rem;border-bottom:1px solid #1a3a5c;display:flex;align-items:center;flex-shrink:0;min-height:60px;}
+.sidebar-logo-img-wrap{background:#fff;border-radius:.5rem;padding:.35rem .6rem;display:flex;align-items:center;justify-content:center;overflow:hidden;width:100%;}
+.sidebar-logo-img-wrap img{height:2rem;object-fit:contain;width:100%;max-width:140px;}
+.sidebar.collapsed .sidebar-logo-img-wrap{padding:.35rem;width:auto;}
+.sidebar.collapsed .sidebar-logo-img-wrap img{max-width:2rem;}
 .sidebar.collapsed .nav-label,.sidebar.collapsed .nav-item span.lbl,.sidebar.collapsed .sidebar-footer-text{display:none;}
 .sidebar.collapsed .nav-item{justify-content:center;padding:.55rem 0;}
 .nav-section{padding:.5rem 0;flex-shrink:0;}
@@ -134,10 +136,11 @@ tr:hover td{background:#fafafa;}
     <a href="orcamentos.html" class="nav-item"><span class="ic">📋</span><span class="lbl">Orçamentos</span></a>
     <a href="obras.html" class="nav-item"><span class="ic">🏗️</span><span class="lbl">Obras</span></a>
     <a href="financeiro.html" class="nav-item"><span class="ic">💰</span><span class="lbl">Financeiro</span></a>
-    <a href="contratos.html" class="nav-item"><span class="ic">📄</span><span class="lbl">Contratos</span></a>
+    <a href="portal-sindico.html" class="nav-item"><span class="ic">🔑</span><span class="lbl">Painel do Síndico</span></a>
   </nav>
   <nav class="nav-section">
     <div class="nav-label">Recursos</div>
+    <a href="contratos.html" class="nav-item"><span class="ic">📄</span><span class="lbl">Contratos</span></a>
     <a href="compras.html" class="nav-item"><span class="ic">🛒</span><span class="lbl">Compras</span></a>
     <a href="estoque.html" class="nav-item active"><span class="ic">📦</span><span class="lbl">Estoque</span></a>
     <a href="equipe.html" class="nav-item"><span class="ic">👷</span><span class="lbl">Equipe</span></a>
@@ -151,7 +154,7 @@ tr:hover td{background:#fafafa;}
     <a href="relatorios.html" class="nav-item"><span class="ic">📊</span><span class="lbl">Relatórios</span></a>
     <a href="configuracoes.html" class="nav-item"><span class="ic">⚙️</span><span class="lbl">Configurações</span></a>
   </nav>
-  <div class="sidebar-footer">
+<div class="sidebar-footer">
     <div class="user-info sidebar-footer-text">
       <b id="sb-user-name">—</b>
       <span id="sb-user-email">—</span>
@@ -224,6 +227,7 @@ tr:hover td{background:#fafafa;}
         <input type="text" id="f-search-mov" placeholder="Buscar item…" style="min-width:180px;" oninput="renderMovimentos()">
         <select id="f-tipo-mov" onchange="renderMovimentos()">
           <option value="">Todos</option>
+          <option value="transferencia">Transferências</option>
           <option value="entrada">Entradas</option>
           <option value="saida">Saídas</option>
           <option value="ajuste">Ajustes</option>
@@ -232,7 +236,7 @@ tr:hover td{background:#fafafa;}
       <div class="card" style="overflow:auto;">
         <table>
           <thead><tr>
-            <th>Data</th><th>Item</th><th>Tipo</th><th>Qtd</th><th>Motivo</th><th>Responsável</th>
+            <th>Data</th><th>Item</th><th>Tipo</th><th>De → Para</th><th>Qtd</th><th>Responsável</th><th>Observação</th>
           </tr></thead>
           <tbody id="tbody-movimentos"></tbody>
         </table>
@@ -282,28 +286,61 @@ tr:hover td{background:#fafafa;}
 <!-- Modal Movimentação -->
 <div id="modal-mov">
   <div style="position:fixed;inset:0;background:#0006;z-index:200;display:flex;align-items:center;justify-content:center;padding:1rem;">
-    <div class="modal" style="max-width:480px;">
+    <div class="modal" style="max-width:560px;">
       <div class="modal-header">
-        <h3>Movimentar Estoque</h3>
+        <h3>Movimentar Equipamento / Item</h3>
         <button onclick="closeMovimento()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#64748b;">✕</button>
       </div>
       <div class="modal-body">
-        <div class="field"><label>Item*</label><select id="mv-item"></select></div>
-        <div class="field-row">
-          <div class="field"><label>Tipo*</label>
-            <select id="mv-tipo">
-              <option value="entrada">Entrada</option>
-              <option value="saida">Saída</option>
-              <option value="ajuste">Ajuste</option>
-            </select>
+        <div class="field"><label>Item*</label><select id="mv-item" onchange="onMvItemChange()"></select></div>
+
+        <div class="field">
+          <label>Tipo de movimentação*</label>
+          <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.4rem;margin-top:.3rem;">
+            <label id="mv-card-transferencia" onclick="setMvTipo('transferencia')" style="display:flex;align-items:center;gap:.5rem;cursor:pointer;padding:.55rem .75rem;border:2px solid #E87722;border-radius:.45rem;font-size:.82rem;background:#fff8f2;min-width:0;">
+              <input type="radio" name="mv-tipo-r" value="transferencia" checked style="accent-color:#E87722;flex-shrink:0;">
+              <span style="min-width:0;"><strong>↔ Transferência</strong><br><span style="font-size:.72rem;color:#64748b;">Muda de local</span></span>
+            </label>
+            <label id="mv-card-saida" onclick="setMvTipo('saida')" style="display:flex;align-items:center;gap:.5rem;cursor:pointer;padding:.55rem .75rem;border:1px solid #e2e8f0;border-radius:.45rem;font-size:.82rem;min-width:0;">
+              <input type="radio" name="mv-tipo-r" value="saida" style="accent-color:#dc2626;flex-shrink:0;">
+              <span style="min-width:0;"><strong>↑ Saída</strong><br><span style="font-size:.72rem;color:#64748b;">Reduz quantidade</span></span>
+            </label>
+            <label id="mv-card-entrada" onclick="setMvTipo('entrada')" style="display:flex;align-items:center;gap:.5rem;cursor:pointer;padding:.55rem .75rem;border:1px solid #e2e8f0;border-radius:.45rem;font-size:.82rem;min-width:0;">
+              <input type="radio" name="mv-tipo-r" value="entrada" style="accent-color:#16a34a;flex-shrink:0;">
+              <span style="min-width:0;"><strong>↓ Entrada</strong><br><span style="font-size:.72rem;color:#64748b;">Aumenta quantidade</span></span>
+            </label>
+            <label id="mv-card-ajuste" onclick="setMvTipo('ajuste')" style="display:flex;align-items:center;gap:.5rem;cursor:pointer;padding:.55rem .75rem;border:1px solid #e2e8f0;border-radius:.45rem;font-size:.82rem;min-width:0;">
+              <input type="radio" name="mv-tipo-r" value="ajuste" style="accent-color:#2563eb;flex-shrink:0;">
+              <span style="min-width:0;"><strong>⚙ Ajuste</strong><br><span style="font-size:.72rem;color:#64748b;">Corrige inventário</span></span>
+            </label>
           </div>
-          <div class="field"><label>Quantidade*</label><input id="mv-qtd" type="number" step="0.01" placeholder="0"></div>
         </div>
+
+        <!-- campos transferência: de → para -->
+        <div id="mv-transfer-fields">
+          <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:.5rem;align-items:end;">
+            <div class="field" style="margin:0;">
+              <label>De (origem)*</label>
+              <select id="mv-origem" style="width:100%;"></select>
+            </div>
+            <div style="padding-bottom:.6rem;font-size:1.1rem;color:#64748b;font-weight:700;">→</div>
+            <div class="field" style="margin:0;">
+              <label>Para (destino)*</label>
+              <select id="mv-destino" style="width:100%;"></select>
+            </div>
+          </div>
+        </div>
+
+        <!-- campo quantidade: entrada/saída/ajuste -->
+        <div id="mv-qtd-field" style="display:none;">
+          <div class="field"><label>Quantidade*</label><input id="mv-qtd" type="number" step="0.01" min="0" placeholder="0"></div>
+        </div>
+
         <div class="field-row">
-          <div class="field"><label>Responsável</label><input id="mv-resp" type="text" placeholder="Nome"></div>
+          <div class="field"><label>Responsável*</label><input id="mv-resp" type="text" placeholder="Nome de quem movimentou"></div>
           <div class="field"><label>Data</label><input id="mv-data" type="date"></div>
         </div>
-        <div class="field"><label>Motivo / Observação</label><textarea id="mv-motivo" rows="2" placeholder="Compra, consumo em obra, ajuste de inventário…"></textarea></div>
+        <div class="field"><label>Observação</label><textarea id="mv-motivo" rows="2" placeholder="Ex: Fim de obra, manutenção, empréstimo…"></textarea></div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-outline" onclick="closeMovimento()">Cancelar</button>
@@ -320,18 +357,39 @@ const SB_URL='https://jmjbdundgbbefvhvyffb.supabase.co';
 const SB_KEY='sb_publishable_CeLpQY1DjpWfv8U2lSMmew_Uqq6OchZ';
 const sb=supabase.createClient(SB_URL,SB_KEY);
 
+// ── Multi-unidade bootstrap ───────────────────────────
+const _unitSlug = new URLSearchParams(location.search).get('unit') || '';
+function _injectUnitLinks() {
+  if (!_unitSlug) return;
+  document.querySelectorAll('a[href]').forEach(a => {
+    const href = a.getAttribute('href');
+    if (!href || href.startsWith('http') || href.startsWith('#') || href.startsWith('javascript') || href.startsWith('portal') || href.startsWith('mailto')) return;
+    if (href.includes('?unit=')) return;
+    const sep = href.includes('?') ? '&' : '?';
+    a.setAttribute('href', href + sep + 'unit=' + _unitSlug);
+  });
+}
+function _unitCheck(perfil) {
+  // Superadmin não deve acessar páginas de unidade diretamente
+  if (perfil?.role === 'superadmin') { location.href = 'index.html?unit=admin'; return false; }
+  // Sem slug na URL → redireciona para index com slug vazio (vai tratar lá)
+  if (!_unitSlug) { location.href = 'index.html'; return false; }
+  return true;
+}
+
+
 let _items=[];
 let _movs=[];
+let _obras=[];
 let _editId=null;
 
 // ── AUTH ──────────────────────────────────────────────────────────
 async function boot(){
   const logo=await getLogoUrl();
-  document.getElementById('li-logo').src=logo;
-  document.getElementById('sb-logo').src=logo;
   document.getElementById('modal-mov').style.display='none';
   const{data:{session}}=await sb.auth.getSession();
   if(session) await enterApp(session.user);
+  else location.href='index.html'+(_unitSlug?'?unit='+_unitSlug:'');
 }
 
 async function getLogoUrl(){
@@ -352,16 +410,18 @@ async function enterApp(user){
   const{data:p}=await sb.from('obs_perfis').select('nome_completo').eq('id',user.id).single();
   document.getElementById('sb-user-name').textContent=p?.nome_completo||user.email;
   document.getElementById('login-overlay').style.display='none';
+  if(!_unitCheck(data)){return;}
+  _injectUnitLinks();
   document.getElementById('app').style.display='block';
   await loadData();
 }
 
-async function doLogout(){await sb.auth.signOut();location.reload();}
+async function doLogout(){await sb.auth.signOut();location.href='index.html'+(_unitSlug?'?unit='+_unitSlug:'');}
 
 function toggleSidebar(){
   document.getElementById('sidebar').classList.toggle('collapsed');
   document.getElementById('main').classList.toggle('expanded');
-}
+localStorage.setItem('obs_sidebar',document.getElementById('sidebar').classList.contains('collapsed')?'1':'0');}
 
 function switchTab(id,el){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
@@ -374,12 +434,14 @@ function switchTab(id,el){
 
 // ── DATA ──────────────────────────────────────────────────────────
 async function loadData(){
-  const[{data:items},{data:movs}]=await Promise.all([
+  const[{data:items},{data:movs},{data:obras}]=await Promise.all([
     sb.from('obs_stock').select('*').eq('ativo',true).order('nome'),
-    sb.from('obs_stock_movimentos').select('*, obs_stock(nome,unidade)').order('created_at',{ascending:false}).limit(200)
+    sb.from('obs_stock_movimentos').select('*, obs_stock(nome,unidade)').order('created_at',{ascending:false}).limit(300),
+    sb.from('obs_projects').select('id,nome').not('status','in','("cancelada","concluida","entregue")').order('nome')
   ]);
   _items=items||[];
   _movs=movs||[];
+  _obras=obras||[];
   populateFilters();
   updateKPIs();
   checkAlerts();
@@ -393,6 +455,18 @@ function populateFilters(){
   document.getElementById('f-local').innerHTML='<option value="">Todos os locais</option>'+locals.map(l=>`<option>${l}</option>`).join('');
   document.getElementById('cat-list').innerHTML=cats.map(c=>`<option value="${c}">`).join('');
   document.getElementById('mv-item').innerHTML='<option value="">Selecione o item…</option>'+_items.map(i=>`<option value="${i.id}">${i.nome} (${i.quantidade||0} ${i.unidade||'un'})</option>`).join('');
+  fillLocalSelects();
+}
+
+function localOptions(selectedVal){
+  const obraOptions=_obras.map(o=>`<option value="${o.nome}"${o.nome===selectedVal?' selected':''}>${o.nome}</option>`).join('');
+  const galSelected=(!selectedVal||selectedVal==='Galpão'||selectedVal==='Galpão / Depósito')?'selected':'';
+  return `<option value="Galpão" ${galSelected}>Galpão / Depósito</option>${obraOptions}`;
+}
+
+function fillLocalSelects(origemVal,destinoVal){
+  document.getElementById('mv-origem').innerHTML=localOptions(origemVal||'');
+  document.getElementById('mv-destino').innerHTML=localOptions(destinoVal||'');
 }
 
 function stockStatus(item){
@@ -476,18 +550,28 @@ function renderMovimentos(){
   const search=document.getElementById('f-search-mov').value.toLowerCase();
   const tipo=document.getElementById('f-tipo-mov').value;
   let list=_movs;
-  if(search) list=list.filter(m=>(m.obs_stock?.nome||'').toLowerCase().includes(search)||(m.motivo||'').toLowerCase().includes(search));
+  if(search) list=list.filter(m=>(m.obs_stock?.nome||'').toLowerCase().includes(search)||(m.motivo||'').toLowerCase().includes(search)||(m.origem||'').toLowerCase().includes(search)||(m.destino||'').toLowerCase().includes(search));
   if(tipo) list=list.filter(m=>m.tipo===tipo);
   const tbody=document.getElementById('tbody-movimentos');
-  if(!list.length){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:2rem;">Nenhuma movimentação.</td></tr>';return;}
-  tbody.innerHTML=list.map(m=>`<tr>
-    <td>${fmtDate(m.created_at)}</td>
-    <td><span style="font-weight:600;">${m.obs_stock?.nome||'—'}</span></td>
-    <td>${badgeMov(m.tipo)}</td>
-    <td style="font-weight:700;color:${m.tipo==='saida'?'#dc2626':m.tipo==='entrada'?'#166534':'#1d4ed8'};">${m.tipo==='saida'?'-':'+'} ${m.quantidade} ${m.obs_stock?.unidade||''}</td>
-    <td style="font-size:.78rem;">${m.motivo||'—'}</td>
-    <td style="font-size:.78rem;">${m.responsavel||'—'}</td>
-  </tr>`).join('');
+  if(!list.length){tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:2rem;">Nenhuma movimentação.</td></tr>';return;}
+  tbody.innerHTML=list.map(m=>{
+    const isTransf=m.tipo==='transferencia';
+    const dePara=isTransf
+      ?`<span style="font-size:.78rem;"><strong>${m.origem||'—'}</strong> <span style="color:#94a3b8;">→</span> <strong>${m.destino||'—'}</strong></span>`
+      :`<span style="color:#94a3b8;font-size:.75rem;">${m.origem||'—'}</span>`;
+    const qtdColor=m.tipo==='saida'?'#dc2626':m.tipo==='entrada'?'#166534':m.tipo==='transferencia'?'#64748b':'#1d4ed8';
+    const qtdSign=m.tipo==='saida'?'−':m.tipo==='entrada'?'+':m.tipo==='transferencia'?'↔':'~';
+    const qtdStr=isTransf?'—':`${qtdSign} ${m.quantidade} ${m.obs_stock?.unidade||''}`;
+    return `<tr>
+      <td style="white-space:nowrap;font-size:.78rem;">${fmtDate(m.created_at)}</td>
+      <td><span style="font-weight:600;">${m.obs_stock?.nome||'—'}</span></td>
+      <td>${badgeMov(m.tipo)}</td>
+      <td>${dePara}</td>
+      <td style="font-weight:700;color:${qtdColor};">${qtdStr}</td>
+      <td style="font-size:.78rem;">${m.responsavel||'—'}</td>
+      <td style="font-size:.78rem;color:#64748b;">${m.motivo||'—'}</td>
+    </tr>`;
+  }).join('');
 }
 
 // ── MODAL ITEM ────────────────────────────────────────────────────
@@ -562,12 +646,42 @@ async function deleteItem(){
 }
 
 // ── MODAL MOVIMENTAÇÃO ────────────────────────────────────────────
+function setMvTipo(tipo){
+  document.querySelector(`input[name="mv-tipo-r"][value="${tipo}"]`).checked=true;
+  ['transferencia','saida','entrada','ajuste'].forEach(t=>{
+    const card=document.getElementById('mv-card-'+t);
+    if(card) card.style.border=t===tipo?'2px solid #E87722':'1px solid #e2e8f0';
+    if(card) card.style.background=t===tipo?'#fff8f2':'';
+  });
+  const isTransf=tipo==='transferencia';
+  document.getElementById('mv-transfer-fields').style.display=isTransf?'':'none';
+  document.getElementById('mv-qtd-field').style.display=isTransf?'none':'';
+}
+
+function onMvItemChange(){
+  const itemId=document.getElementById('mv-item').value;
+  const item=_items.find(x=>x.id===itemId);
+  if(item?.local){
+    fillLocalSelects(item.local, '');
+    // default destino: first option that's not the origin
+    const destSel=document.getElementById('mv-destino');
+    for(let i=0;i<destSel.options.length;i++){
+      if(destSel.options[i].value!==item.local){destSel.selectedIndex=i;break;}
+    }
+  } else {
+    fillLocalSelects('Galpão','');
+  }
+}
+
 function openMovimento(){
   const today=new Date().toISOString().split('T')[0];
   document.getElementById('mv-data').value=today;
   document.getElementById('mv-qtd').value='';
   document.getElementById('mv-resp').value='';
   document.getElementById('mv-motivo').value='';
+  document.getElementById('mv-item').value='';
+  fillLocalSelects('Galpão','');
+  setMvTipo('transferencia');
   document.getElementById('modal-mov').style.display='flex';
 }
 
@@ -575,25 +689,44 @@ function closeMovimento(){document.getElementById('modal-mov').style.display='no
 
 async function saveMovimento(){
   const itemId=document.getElementById('mv-item').value;
-  const tipo=document.getElementById('mv-tipo').value;
-  const qtd=parseFloat(document.getElementById('mv-qtd').value)||0;
+  const tipo=document.querySelector('input[name="mv-tipo-r"]:checked')?.value||'transferencia';
+  const resp=document.getElementById('mv-resp').value.trim();
+  const motivo=document.getElementById('mv-motivo').value.trim();
   if(!itemId){toast('Selecione o item','w');return;}
-  if(!qtd){toast('Quantidade obrigatória','w');return;}
-  const{error:mvErr}=await sb.from('obs_stock_movimentos').insert({
-    stock_id:itemId,
-    tipo,
-    quantidade:qtd,
-    responsavel:document.getElementById('mv-resp').value.trim(),
-    motivo:document.getElementById('mv-motivo').value.trim()
-  });
-  if(mvErr){toast(mvErr.message,'e');return;}
+  if(!resp){toast('Informe o responsável','w');return;}
+
   const item=_items.find(x=>x.id===itemId);
-  let novaQtd=(item?.quantidade||0);
-  if(tipo==='entrada') novaQtd+=qtd;
-  else if(tipo==='saida') novaQtd=Math.max(0,novaQtd-qtd);
-  else novaQtd=qtd;
-  const{error:upErr}=await sb.from('obs_stock').update({quantidade:novaQtd}).eq('id',itemId);
-  if(upErr){toast(upErr.message,'e');return;}
+  let payload={stock_id:itemId,tipo,responsavel:resp,motivo,quantidade:0};
+
+  if(tipo==='transferencia'){
+    const origem=document.getElementById('mv-origem').value;
+    const destino=document.getElementById('mv-destino').value;
+    if(!destino){toast('Selecione o destino','w');return;}
+    if(origem===destino){toast('Origem e destino são iguais','w');return;}
+    payload.origem=origem;
+    payload.destino=destino;
+    payload.quantidade=0;
+    const{error:mvErr}=await sb.from('obs_stock_movimentos').insert(payload);
+    if(mvErr){toast(mvErr.message,'e');return;}
+    // atualiza o local do item
+    const{error:upErr}=await sb.from('obs_stock').update({local:destino}).eq('id',itemId);
+    if(upErr){toast(upErr.message,'e');return;}
+  } else {
+    const qtd=parseFloat(document.getElementById('mv-qtd').value)||0;
+    if(!qtd){toast('Quantidade obrigatória','w');return;}
+    payload.quantidade=qtd;
+    payload.origem=item?.local||'Galpão';
+    payload.destino=item?.local||'Galpão';
+    const{error:mvErr}=await sb.from('obs_stock_movimentos').insert(payload);
+    if(mvErr){toast(mvErr.message,'e');return;}
+    let novaQtd=item?.quantidade||0;
+    if(tipo==='entrada') novaQtd+=qtd;
+    else if(tipo==='saida') novaQtd=Math.max(0,novaQtd-qtd);
+    else novaQtd=qtd;
+    const{error:upErr}=await sb.from('obs_stock').update({quantidade:novaQtd}).eq('id',itemId);
+    if(upErr){toast(upErr.message,'e');return;}
+  }
+
   toast('Movimentação registrada','s');
   closeMovimento();
   await loadData();
@@ -607,8 +740,8 @@ function badgeStatus(s){
 }
 
 function badgeMov(t){
-  const map={entrada:'green',saida:'red',ajuste:'blue'};
-  const label={entrada:'Entrada',saida:'Saída',ajuste:'Ajuste'};
+  const map={entrada:'green',saida:'red',ajuste:'blue',transferencia:'gray'};
+  const label={entrada:'Entrada',saida:'Saída',ajuste:'Ajuste',transferencia:'Transferência'};
   return `<span class="badge ${map[t]||'gray'}">${label[t]||t}</span>`;
 }
 
@@ -627,6 +760,9 @@ function toast(msg,type=''){
 }
 
 boot();
+
+// restore sidebar state
+(()=>{const _sc=localStorage.getItem('obs_sidebar')==='1';if(_sc){document.getElementById('sidebar')?.classList.add('collapsed');document.getElementById('main')?.classList.add('expanded');}})();
 </script>
 </body>
 </html>

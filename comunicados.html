@@ -18,9 +18,11 @@ body{font-family:"Segoe UI",system-ui,sans-serif;background:#f1f5f9;color:#1e293
 .btn-primary:hover{background:#d06918;}
 .sidebar{position:fixed;top:0;left:0;bottom:0;width:var(--sidebar);background:#0B1D33;display:flex;flex-direction:column;z-index:100;overflow-y:auto;transition:.25s;}
 .sidebar.collapsed{width:60px;}
-.sidebar-logo{padding:1rem;border-bottom:1px solid #1e3a5f;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
-.sidebar-logo img{width:140px;max-width:100%;object-fit:contain;transition:.25s;}
-.sidebar.collapsed .sidebar-logo img{width:32px;}
+.sidebar-logo{padding:.75rem .9rem;border-bottom:1px solid #1a3a5c;display:flex;align-items:center;flex-shrink:0;min-height:60px;}
+.sidebar-logo-img-wrap{background:#fff;border-radius:.5rem;padding:.35rem .6rem;display:flex;align-items:center;justify-content:center;overflow:hidden;width:100%;}
+.sidebar-logo-img-wrap img{height:2rem;object-fit:contain;width:100%;max-width:140px;}
+.sidebar.collapsed .sidebar-logo-img-wrap{padding:.35rem;width:auto;}
+.sidebar.collapsed .sidebar-logo-img-wrap img{max-width:2rem;}
 .sidebar.collapsed .nav-label,.sidebar.collapsed .nav-item span.lbl,.sidebar.collapsed .sidebar-footer-text{display:none;}
 .sidebar.collapsed .nav-item{justify-content:center;padding:.55rem 0;}
 .nav-section{padding:.5rem 0;flex-shrink:0;}
@@ -141,10 +143,11 @@ body{font-family:"Segoe UI",system-ui,sans-serif;background:#f1f5f9;color:#1e293
     <a href="orcamentos.html" class="nav-item"><span class="ic">📋</span><span class="lbl">Orçamentos</span></a>
     <a href="obras.html" class="nav-item"><span class="ic">🏗️</span><span class="lbl">Obras</span></a>
     <a href="financeiro.html" class="nav-item"><span class="ic">💰</span><span class="lbl">Financeiro</span></a>
-    <a href="contratos.html" class="nav-item"><span class="ic">📄</span><span class="lbl">Contratos</span></a>
+    <a href="portal-sindico.html" class="nav-item"><span class="ic">🔑</span><span class="lbl">Painel do Síndico</span></a>
   </nav>
   <nav class="nav-section">
     <div class="nav-label">Recursos</div>
+    <a href="contratos.html" class="nav-item"><span class="ic">📄</span><span class="lbl">Contratos</span></a>
     <a href="compras.html" class="nav-item"><span class="ic">🛒</span><span class="lbl">Compras</span></a>
     <a href="estoque.html" class="nav-item"><span class="ic">📦</span><span class="lbl">Estoque</span></a>
     <a href="equipe.html" class="nav-item"><span class="ic">👷</span><span class="lbl">Equipe</span></a>
@@ -158,7 +161,7 @@ body{font-family:"Segoe UI",system-ui,sans-serif;background:#f1f5f9;color:#1e293
     <a href="relatorios.html" class="nav-item"><span class="ic">📊</span><span class="lbl">Relatórios</span></a>
     <a href="configuracoes.html" class="nav-item"><span class="ic">⚙️</span><span class="lbl">Configurações</span></a>
   </nav>
-  <div class="sidebar-footer">
+<div class="sidebar-footer">
     <div class="user-info sidebar-footer-text">
       <b id="sb-user-name">—</b>
       <span id="sb-user-email">—</span>
@@ -279,6 +282,27 @@ const SB_URL='https://jmjbdundgbbefvhvyffb.supabase.co';
 const SB_KEY='sb_publishable_CeLpQY1DjpWfv8U2lSMmew_Uqq6OchZ';
 const sb=supabase.createClient(SB_URL,SB_KEY);
 
+// ── Multi-unidade bootstrap ───────────────────────────
+const _unitSlug = new URLSearchParams(location.search).get('unit') || '';
+function _injectUnitLinks() {
+  if (!_unitSlug) return;
+  document.querySelectorAll('a[href]').forEach(a => {
+    const href = a.getAttribute('href');
+    if (!href || href.startsWith('http') || href.startsWith('#') || href.startsWith('javascript') || href.startsWith('portal') || href.startsWith('mailto')) return;
+    if (href.includes('?unit=')) return;
+    const sep = href.includes('?') ? '&' : '?';
+    a.setAttribute('href', href + sep + 'unit=' + _unitSlug);
+  });
+}
+function _unitCheck(perfil) {
+  // Superadmin não deve acessar páginas de unidade diretamente
+  if (perfil?.role === 'superadmin') { location.href = 'index.html?unit=admin'; return false; }
+  // Sem slug na URL → redireciona para index com slug vazio (vai tratar lá)
+  if (!_unitSlug) { location.href = 'index.html'; return false; }
+  return true;
+}
+
+
 let _msgs=[];
 let _obras=[];
 let _userName='Obrasul';
@@ -286,10 +310,9 @@ let _userName='Obrasul';
 // ── AUTH ──────────────────────────────────────────────────────────
 async function boot(){
   const logo=await getLogoUrl();
-  document.getElementById('li-logo').src=logo;
-  document.getElementById('sb-logo').src=logo;
   const{data:{session}}=await sb.auth.getSession();
   if(session) await enterApp(session.user);
+  else location.href='index.html'+(_unitSlug?'?unit='+_unitSlug:'');
 }
 
 async function getLogoUrl(){
@@ -311,19 +334,18 @@ async function enterApp(user){
   _userName=p?.nome_completo||user.email;
   document.getElementById('sb-user-name').textContent=_userName;
   document.getElementById('login-overlay').style.display='none';
+  if(!_unitCheck(data)){return;}
+  _injectUnitLinks();
   document.getElementById('app').style.display='block';
   await loadData();
 }
 
-async function doLogout(){
-  await sb.auth.signOut();
-  location.reload();
-}
+async function doLogout(){await sb.auth.signOut();location.href='index.html'+(_unitSlug?'?unit='+_unitSlug:'');}
 
 function toggleSidebar(){
   document.getElementById('sidebar').classList.toggle('collapsed');
   document.getElementById('main').classList.toggle('expanded');
-}
+localStorage.setItem('obs_sidebar',document.getElementById('sidebar').classList.contains('collapsed')?'1':'0');}
 
 function switchTab(id,el){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
@@ -338,7 +360,7 @@ function switchTab(id,el){
 async function loadData(){
   const[{data:msgs},{data:obras}]=await Promise.all([
     sb.from('obs_comunicados').select('*, obs_projects(nome)').order('created_at',{ascending:false}).limit(500),
-    sb.from('obs_projects').select('id,nome').eq('status','em_andamento').order('nome')
+    sb.from('obs_projects').select('id,nome').not('status','in','(concluida,encerrada,cancelado)').order('nome')
   ]);
   _msgs=msgs||[];
   _obras=obras||[];
@@ -408,6 +430,7 @@ function renderMsgList(list,containerId,showMarkRead){
         <div style="display:flex;gap:.3rem;">
           ${showMarkRead&&!m.lido?`<button class="btn btn-green btn-sm" onclick="marcarLido('${m.id}')">✓ Lido</button>`:''}
           <button class="btn btn-outline btn-sm" onclick="copiarWhatsApp('${m.id}')" title="Copiar texto para WhatsApp">📱</button>
+          <button class="btn btn-outline btn-sm" onclick="imprimirComunicado('${m.id}')" title="Imprimir / Gerar PDF">🖨️</button>
           <button class="btn btn-og btn-sm" onclick="responder('${m.project_id}','${(m.remetente_nome||m.remetente).replace(/'/g,"\\'")}')">Responder</button>
         </div>
       </div>
@@ -548,7 +571,39 @@ function copiarWhatsApp(id){
   }
 }
 
+function imprimirComunicado(id){
+  const m=_msgs.find(x=>x.id===id);
+  if(!m)return;
+  const obraNome=m.obs_projects?.nome||'Obra';
+  const data=new Date(m.created_at).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'});
+  const hora=new Date(m.created_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  const tipoLabel={informativo:'Informativo',urgente:'URGENTE',solicitacao:'Solicitação',resposta:'Resposta'}[m.tipo]||m.tipo;
+  const w=window.open('','_blank','width=800,height=600');
+  w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+  <style>
+    @page{size:A4;margin:2cm}
+    body{font-family:"Segoe UI",sans-serif;color:#1e293b;max-width:720px;margin:0 auto;}
+    .header{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #0B1D33;padding-bottom:1rem;margin-bottom:1.5rem;}
+    .header h1{font-size:1.1rem;color:#0B1D33;font-weight:800;}
+    .badge{display:inline-block;padding:.2rem .7rem;border-radius:9999px;font-size:.8rem;font-weight:700;background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;}
+    .obra{font-size:.85rem;color:#64748b;margin-bottom:.5rem;}
+    .body{font-size:.95rem;line-height:1.7;white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:.5rem;padding:1.25rem;margin:1rem 0;}
+    .footer{font-size:.78rem;color:#94a3b8;margin-top:1.5rem;border-top:1px solid #e2e8f0;padding-top:.75rem;}
+  </style></head><body>
+  <div class="header"><h1>Comunicado — Obrasul</h1><span class="badge">${tipoLabel}</span></div>
+  <div class="obra">🏗️ ${obraNome}</div>
+  <div class="body">${(m.mensagem||'').replace(/</g,'&lt;')}</div>
+  <div class="footer">Enviado por: <b>${m.remetente_nome||'Obrasul'}</b> · ${data} às ${hora}</div>
+  </body></html>`);
+  w.document.close();
+  w.focus();
+  setTimeout(()=>w.print(),400);
+}
+
 boot();
+
+// restore sidebar state
+(()=>{const _sc=localStorage.getItem('obs_sidebar')==='1';if(_sc){document.getElementById('sidebar')?.classList.add('collapsed');document.getElementById('main')?.classList.add('expanded');}})();
 </script>
 </body>
 </html>

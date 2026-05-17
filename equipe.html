@@ -18,9 +18,11 @@ body{font-family:"Segoe UI",system-ui,sans-serif;background:#f1f5f9;color:#1e293
 .btn-primary:hover{background:#d06918;}
 .sidebar{position:fixed;top:0;left:0;bottom:0;width:var(--sidebar);background:#0B1D33;display:flex;flex-direction:column;z-index:100;overflow-y:auto;transition:.25s;}
 .sidebar.collapsed{width:60px;}
-.sidebar-logo{padding:1rem;border-bottom:1px solid #1e3a5f;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
-.sidebar-logo img{width:140px;max-width:100%;object-fit:contain;transition:.25s;}
-.sidebar.collapsed .sidebar-logo img{width:32px;}
+.sidebar-logo{padding:.75rem .9rem;border-bottom:1px solid #1a3a5c;display:flex;align-items:center;flex-shrink:0;min-height:60px;}
+.sidebar-logo-img-wrap{background:#fff;border-radius:.5rem;padding:.35rem .6rem;display:flex;align-items:center;justify-content:center;overflow:hidden;width:100%;}
+.sidebar-logo-img-wrap img{height:2rem;object-fit:contain;width:100%;max-width:140px;}
+.sidebar.collapsed .sidebar-logo-img-wrap{padding:.35rem;width:auto;}
+.sidebar.collapsed .sidebar-logo-img-wrap img{max-width:2rem;}
 .sidebar.collapsed .nav-label,.sidebar.collapsed .nav-item span.lbl,.sidebar.collapsed .sidebar-footer-text{display:none;}
 .sidebar.collapsed .nav-item{justify-content:center;padding:.55rem 0;}
 .nav-section{padding:.5rem 0;flex-shrink:0;}
@@ -137,10 +139,11 @@ tr:hover td{background:#fafafa;}
     <a href="orcamentos.html" class="nav-item"><span class="ic">📋</span><span class="lbl">Orçamentos</span></a>
     <a href="obras.html" class="nav-item"><span class="ic">🏗️</span><span class="lbl">Obras</span></a>
     <a href="financeiro.html" class="nav-item"><span class="ic">💰</span><span class="lbl">Financeiro</span></a>
-    <a href="contratos.html" class="nav-item"><span class="ic">📄</span><span class="lbl">Contratos</span></a>
+    <a href="portal-sindico.html" class="nav-item"><span class="ic">🔑</span><span class="lbl">Painel do Síndico</span></a>
   </nav>
   <nav class="nav-section">
     <div class="nav-label">Recursos</div>
+    <a href="contratos.html" class="nav-item"><span class="ic">📄</span><span class="lbl">Contratos</span></a>
     <a href="compras.html" class="nav-item"><span class="ic">🛒</span><span class="lbl">Compras</span></a>
     <a href="estoque.html" class="nav-item"><span class="ic">📦</span><span class="lbl">Estoque</span></a>
     <a href="equipe.html" class="nav-item active"><span class="ic">👷</span><span class="lbl">Equipe</span></a>
@@ -154,7 +157,7 @@ tr:hover td{background:#fafafa;}
     <a href="relatorios.html" class="nav-item"><span class="ic">📊</span><span class="lbl">Relatórios</span></a>
     <a href="configuracoes.html" class="nav-item"><span class="ic">⚙️</span><span class="lbl">Configurações</span></a>
   </nav>
-  <div class="sidebar-footer">
+<div class="sidebar-footer">
     <div class="user-info sidebar-footer-text">
       <b id="sb-user-name">—</b>
       <span id="sb-user-email">—</span>
@@ -188,6 +191,7 @@ tr:hover td{background:#fafafa;}
       <div class="tab active" onclick="switchTab('colaboradores',this)">Colaboradores</div>
       <div class="tab" onclick="switchTab('cargos',this)">Por Cargo</div>
       <div class="tab" onclick="switchTab('presencas',this)">Presenças</div>
+      <div class="tab" onclick="switchTab('folha',this)">Folha</div>
       <div class="tab" onclick="switchTab('inativos',this)">Inativos</div>
     </div>
 
@@ -235,8 +239,31 @@ tr:hover td{background:#fafafa;}
       </div>
       <div class="card" style="overflow:auto;">
         <table>
-          <thead><tr><th>Colaborador</th><th>Função</th><th>Vínculo</th><th style="min-width:150px;">Status</th><th>Observação</th></tr></thead>
+          <thead><tr><th>Colaborador</th><th>Função</th><th>Vínculo</th><th style="min-width:140px;">Status</th><th style="min-width:70px;">Horas</th><th style="min-width:70px;">H.Extra</th><th>Observação</th></tr></thead>
           <tbody id="tbody-presencas"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Folha -->
+    <div id="tab-folha" class="tab-panel">
+      <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1.25rem;flex-wrap:wrap;">
+        <div>
+          <label style="font-size:.75rem;font-weight:600;color:#64748b;display:block;margin-bottom:.2rem;">Mês de Referência</label>
+          <input type="month" id="folha-mes" style="padding:.45rem .75rem;border:1px solid #e2e8f0;border-radius:.4rem;font-size:.82rem;outline:none;">
+        </div>
+        <button class="btn btn-outline btn-sm" style="margin-top:1.2rem;" onclick="calcularFolha()">🔄 Calcular</button>
+        <button class="btn btn-og btn-sm" style="margin-top:1.2rem;" id="btn-fechar-folha" onclick="fecharFolha()" disabled>🔒 Fechar Folha</button>
+        <div id="folha-resumo" style="margin-top:1.2rem;font-size:.78rem;color:#64748b;"></div>
+      </div>
+      <div class="card" style="overflow:auto;">
+        <table>
+          <thead><tr>
+            <th>Colaborador</th><th>R$/h</th><th>Horas Trab.</th><th>H. Extra</th>
+            <th>Faltas</th><th>Valor Horas</th><th>Extra (1.5×)</th><th>Adiantamentos</th><th>Total Líquido</th><th></th>
+          </tr></thead>
+          <tbody id="tbody-folha"></tbody>
+          <tfoot id="tfoot-folha"></tfoot>
         </table>
       </div>
     </div>
@@ -292,6 +319,10 @@ tr:hover td{background:#fafafa;}
         <div class="field"><label>Salário Base (R$)</label><input id="f-salario" type="number" step="0.01" placeholder="0,00"></div>
       </div>
       <div class="field-row">
+        <div class="field"><label>Valor/Hora (R$)</label><input id="f-valor-hora" type="number" step="0.01" min="0" placeholder="0,00"></div>
+        <div class="field"><label>Horas/Dia Padrão</label><input id="f-horas-dia" type="number" step="1" min="1" max="24" placeholder="8"></div>
+      </div>
+      <div class="field-row">
         <div class="field"><label>Data Admissão</label><input id="f-admissao" type="date"></div>
         <div class="field"><label>Telefone</label><input id="f-tel" type="text" placeholder="(11) 9 0000-0000"></div>
       </div>
@@ -317,10 +348,56 @@ tr:hover td{background:#fafafa;}
 
 <div id="toast-area"></div>
 
+<!-- Modal Adiantamento -->
+<div id="modal-adiant" style="position:fixed;inset:0;background:#0006;z-index:201;display:none;align-items:center;justify-content:center;padding:1rem;">
+  <div class="modal" style="max-width:500px;">
+    <div class="modal-header">
+      <h3>Adiantamentos — <span id="adiant-emp-nome">—</span></h3>
+      <button onclick="document.getElementById('modal-adiant').style.display='none'" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#64748b;">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:#f8fafc;border-radius:.5rem;padding:.85rem;border:1px solid #e2e8f0;">
+        <div style="font-size:.72rem;font-weight:700;color:#64748b;margin-bottom:.6rem;">NOVO ADIANTAMENTO</div>
+        <div class="field-row">
+          <div class="field"><label>Valor (R$)*</label><input id="adi-valor" type="number" step="0.01" placeholder="0,00"></div>
+          <div class="field"><label>Data</label><input id="adi-data" type="date"></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>Mês Referência</label><input id="adi-mes" type="month"></div>
+          <div class="field"><label>Descrição</label><input id="adi-desc" type="text" placeholder="Ex.: adiantamento quinzenal"></div>
+        </div>
+        <button class="btn btn-og btn-sm" style="margin-top:.5rem;" onclick="saveAdiantamento()">+ Registrar</button>
+      </div>
+      <div id="adiant-list" style="margin-top:.5rem;"></div>
+    </div>
+  </div>
+</div>
+
 <script>
 const SB_URL='https://jmjbdundgbbefvhvyffb.supabase.co';
 const SB_KEY='sb_publishable_CeLpQY1DjpWfv8U2lSMmew_Uqq6OchZ';
 const sb=supabase.createClient(SB_URL,SB_KEY);
+
+// ── Multi-unidade bootstrap ───────────────────────────
+const _unitSlug = new URLSearchParams(location.search).get('unit') || '';
+function _injectUnitLinks() {
+  if (!_unitSlug) return;
+  document.querySelectorAll('a[href]').forEach(a => {
+    const href = a.getAttribute('href');
+    if (!href || href.startsWith('http') || href.startsWith('#') || href.startsWith('javascript') || href.startsWith('portal') || href.startsWith('mailto')) return;
+    if (href.includes('?unit=')) return;
+    const sep = href.includes('?') ? '&' : '?';
+    a.setAttribute('href', href + sep + 'unit=' + _unitSlug);
+  });
+}
+function _unitCheck(perfil) {
+  // Superadmin não deve acessar páginas de unidade diretamente
+  if (perfil?.role === 'superadmin') { location.href = 'index.html?unit=admin'; return false; }
+  // Sem slug na URL → redireciona para index com slug vazio (vai tratar lá)
+  if (!_unitSlug) { location.href = 'index.html'; return false; }
+  return true;
+}
+
 
 let _editId=null;
 let _employees=[];
@@ -328,10 +405,9 @@ let _employees=[];
 // ── AUTH ──────────────────────────────────────────────────────────
 async function boot(){
   const logo=await getLogoUrl();
-  document.getElementById('li-logo').src=logo;
-  document.getElementById('sb-logo').src=logo;
   const{data:{session}}=await sb.auth.getSession();
   if(session) await enterApp(session.user);
+  else location.href='index.html'+(_unitSlug?'?unit='+_unitSlug:'');
 }
 
 async function getLogoUrl(){
@@ -355,14 +431,13 @@ async function enterApp(user){
   const{data:p}=await sb.from('obs_perfis').select('nome_completo').eq('id',user.id).single();
   document.getElementById('sb-user-name').textContent=p?.nome_completo||user.email;
   document.getElementById('login-overlay').style.display='none';
+  if(!_unitCheck(data)){return;}
+  _injectUnitLinks();
   document.getElementById('app').style.display='block';
   await loadData();
 }
 
-async function doLogout(){
-  await sb.auth.signOut();
-  location.reload();
-}
+async function doLogout(){await sb.auth.signOut();location.href='index.html'+(_unitSlug?'?unit='+_unitSlug:'');}
 
 // ── SIDEBAR ────────────────────────────────────────────────────────
 function toggleSidebar(){
@@ -370,7 +445,7 @@ function toggleSidebar(){
   const m=document.getElementById('main');
   s.classList.toggle('collapsed');
   m.classList.toggle('expanded');
-}
+localStorage.setItem('obs_sidebar',document.getElementById('sidebar').classList.contains('collapsed')?'1':'0');}
 
 // ── TABS ───────────────────────────────────────────────────────────
 function switchTab(id,el){
@@ -381,6 +456,7 @@ function switchTab(id,el){
   if(id==='cargos') renderCargos();
   if(id==='inativos') renderInativos();
   if(id==='presencas') initPresencas();
+  if(id==='folha') initFolha();
 }
 
 // ── DATA ───────────────────────────────────────────────────────────
@@ -500,6 +576,8 @@ function editEmp(id){
   document.getElementById('f-vinculo-m').value=e.tipo_vinculo||'clt';
   document.getElementById('f-nivel-m').value=e.nivel||'n1';
   document.getElementById('f-salario').value=e.salario_base||'';
+  document.getElementById('f-valor-hora').value=e.valor_hora||'';
+  document.getElementById('f-horas-dia').value=e.horas_dia_padrao||'';
   document.getElementById('f-admissao').value=e.data_admissao||'';
   document.getElementById('f-tel').value=e.telefone||'';
   document.getElementById('f-email-m').value=e.email||'';
@@ -515,7 +593,7 @@ function editEmp(id){
 function closeModal(){document.getElementById('modal-overlay').classList.remove('open');}
 
 function clearForm(){
-  ['f-nome','f-cpf','f-funcao','f-salario','f-admissao','f-tel','f-email-m','f-banco','f-agencia','f-conta','f-pix','f-obs'].forEach(id=>document.getElementById(id).value='');
+  ['f-nome','f-cpf','f-funcao','f-salario','f-valor-hora','f-horas-dia','f-admissao','f-tel','f-email-m','f-banco','f-agencia','f-conta','f-pix','f-obs'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('f-vinculo-m').value='clt';
   document.getElementById('f-nivel-m').value='n1';
   document.getElementById('f-ativo').checked=true;
@@ -531,6 +609,8 @@ async function saveColaborador(){
     tipo_vinculo:document.getElementById('f-vinculo-m').value,
     nivel:document.getElementById('f-nivel-m').value,
     salario_base:parseFloat(document.getElementById('f-salario').value)||0,
+    valor_hora:parseFloat(document.getElementById('f-valor-hora').value)||0,
+    horas_dia_padrao:parseInt(document.getElementById('f-horas-dia').value)||8,
     data_admissao:document.getElementById('f-admissao').value||null,
     telefone:document.getElementById('f-tel').value.trim(),
     email:document.getElementById('f-email-m').value.trim(),
@@ -576,14 +656,16 @@ async function loadPresencas(){
   // Load existing presences for the date
   const{data:rows}=await sb.from('obs_presencas').select('*').eq('data',data).in('employee_id',ativos.map(e=>e.id));
   _presencasData={};
-  (rows||[]).forEach(r=>{_presencasData[r.employee_id]={status:r.status,obs:r.observacao||'',id:r.id};});
+  (rows||[]).forEach(r=>{_presencasData[r.employee_id]={status:r.status,obs:r.observacao||'',id:r.id,horas:r.horas_trabalhadas,horas_extra:r.horas_extra||0};});
   renderPresencas(ativos,data);
 }
 function renderPresencas(ativos,data){
   const tbody=document.getElementById('tbody-presencas');
-  if(!ativos||!ativos.length){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:1rem;">Nenhum colaborador ativo.</td></tr>';return;}
+  if(!ativos||!ativos.length){tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:1rem;">Nenhum colaborador ativo.</td></tr>';return;}
   tbody.innerHTML=ativos.map(e=>{
     const p=_presencasData[e.id]||{status:'presente',obs:''};
+    const hDef=e.horas_dia_padrao||8;
+    const horasVal=p.horas!=null?p.horas:hDef;
     const opts=['presente','falta','atraso','folga','afastamento'];
     const colors={presente:'#16a34a',falta:'#dc2626',atraso:'#d97706',folga:'#2563eb',afastamento:'#7c3aed'};
     return `<tr>
@@ -592,14 +674,15 @@ function renderPresencas(ativos,data){
       <td>${badgeVinculo(e.tipo_vinculo)}</td>
       <td>
         <select data-empid="${e.id}" class="pres-sel" style="width:100%;padding:.3rem .5rem;border:1px solid #e2e8f0;border-radius:.35rem;font-size:.78rem;outline:none;color:${colors[p.status]||'#374151'};font-weight:600;"
-          onchange="this.style.color='${colors[p.status]||'#374151'}';const c={presente:'#16a34a',falta:'#dc2626',atraso:'#d97706',folga:'#2563eb',afastamento:'#7c3aed'};this.style.color=c[this.value]||'#374151'">
+          onchange="const c={presente:'#16a34a',falta:'#dc2626',atraso:'#d97706',folga:'#2563eb',afastamento:'#7c3aed'};this.style.color=c[this.value]||'#374151'">
           ${opts.map(o=>`<option value="${o}" ${p.status===o?'selected':''}>${o.charAt(0).toUpperCase()+o.slice(1)}</option>`).join('')}
         </select>
       </td>
+      <td><input data-empid="${e.id}" class="pres-horas" type="number" step="0.5" min="0" max="24" value="${horasVal}" style="width:65px;padding:.3rem .4rem;border:1px solid #e2e8f0;border-radius:.35rem;font-size:.78rem;outline:none;text-align:right;"></td>
+      <td><input data-empid="${e.id}" class="pres-extra" type="number" step="0.5" min="0" max="12" value="${p.horas_extra||0}" style="width:65px;padding:.3rem .4rem;border:1px solid #e2e8f0;border-radius:.35rem;font-size:.78rem;outline:none;text-align:right;"></td>
       <td><input data-empid="${e.id}" class="pres-obs" value="${p.obs}" placeholder="Obs…" style="width:100%;padding:.3rem .5rem;border:1px solid #e2e8f0;border-radius:.35rem;font-size:.78rem;outline:none;"></td>
     </tr>`;
   }).join('');
-  // Update summary
   updatePresSummary(ativos);
 }
 function updatePresSummary(ativos){
@@ -613,23 +696,195 @@ async function salvarPresencas(){
   if(!data){toast('Selecione uma data','w');return;}
   const sels=document.querySelectorAll('.pres-sel');
   const obss=document.querySelectorAll('.pres-obs');
+  const horasInputs=document.querySelectorAll('.pres-horas');
+  const extraInputs=document.querySelectorAll('.pres-extra');
   const upserts=[];
   sels.forEach((sel,i)=>{
     const empId=sel.dataset.empid;
     const status=sel.value;
     const obs=obss[i]?.value||'';
+    const horas=parseFloat(horasInputs[i]?.value)||0;
+    const extra=parseFloat(extraInputs[i]?.value)||0;
     const existing=_presencasData[empId];
-    if(existing?.id){
-      upserts.push({id:existing.id,employee_id:empId,data,status,observacao:obs,created_by:null});
-    }else{
-      upserts.push({employee_id:empId,data,status,observacao:obs,created_by:null});
-    }
+    const row={employee_id:empId,data,status,observacao:obs,horas_trabalhadas:horas,horas_extra:extra,created_by:null};
+    if(existing?.id) row.id=existing.id;
+    upserts.push(row);
   });
   if(!upserts.length){toast('Nenhum colaborador para salvar','w');return;}
   const{error}=await sb.from('obs_presencas').upsert(upserts,{onConflict:'employee_id,data'});
   if(error){toast('Erro ao salvar presenças','e');return;}
   toast(`Presenças de ${data.split('-').reverse().join('/')} salvas com sucesso!`,'s');
   await loadPresencas();
+}
+
+// ── FOLHA ──────────────────────────────────────────────────────────
+let _folhaData=[];
+let _adiantEmpId=null;
+
+function initFolha(){
+  const inp=document.getElementById('folha-mes');
+  if(!inp.value){
+    const now=new Date();
+    inp.value=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  }
+  calcularFolha();
+}
+
+async function calcularFolha(){
+  const mes=document.getElementById('folha-mes').value;
+  if(!mes){toast('Selecione o mês','w');return;}
+  const [ano,m]=mes.split('-');
+  const dtIni=`${mes}-01`;
+  const lastDay=new Date(parseInt(ano),parseInt(m),0).getDate();
+  const dtFim=`${mes}-${String(lastDay).padStart(2,'0')}`;
+  const ativos=_employees.filter(e=>e.ativo);
+  const empIds=ativos.map(e=>e.id);
+  if(!empIds.length){_folhaData=[];renderFolha();return;}
+  const[{data:presRows},{data:adtRows},{data:folhasRows}]=await Promise.all([
+    sb.from('obs_presencas').select('*').gte('data',dtIni).lte('data',dtFim).in('employee_id',empIds),
+    sb.from('obs_adiantamentos').select('*').eq('mes_referencia',mes).eq('status','pendente').in('employee_id',empIds),
+    sb.from('obs_folhas').select('*').eq('mes_ano',mes).in('employee_id',empIds)
+  ]);
+  _folhaData=ativos.map(emp=>{
+    const presEmp=(presRows||[]).filter(r=>r.employee_id===emp.id);
+    const totalHoras=presEmp.reduce((s,r)=>s+(r.horas_trabalhadas||0),0);
+    const totalExtra=presEmp.reduce((s,r)=>s+(r.horas_extra||0),0);
+    const diasFalta=presEmp.filter(r=>r.status==='falta').length;
+    const diasTrab=presEmp.filter(r=>r.status==='presente'||r.status==='atraso').length;
+    const valorHora=emp.valor_hora||0;
+    const valorHoras=totalHoras*valorHora;
+    const valorExtra=totalExtra*valorHora*1.5;
+    const adtEmp=(adtRows||[]).filter(r=>r.employee_id===emp.id);
+    const totalAdiant=adtEmp.reduce((s,r)=>s+(r.valor||0),0);
+    const totalBruto=valorHoras+valorExtra;
+    const totalLiq=Math.max(0,totalBruto-totalAdiant);
+    const folhaFechada=(folhasRows||[]).find(f=>f.employee_id===emp.id&&f.status==='fechado');
+    return{emp,totalHoras,totalExtra,diasFalta,diasTrab,valorHora,valorHoras,valorExtra,
+      adtEmp,totalAdiant,totalBruto,totalLiq,folhaFechada};
+  });
+  renderFolha();
+  document.getElementById('btn-fechar-folha').disabled=false;
+}
+
+function renderFolha(){
+  const tbody=document.getElementById('tbody-folha');
+  const tfoot=document.getElementById('tfoot-folha');
+  if(!_folhaData.length){
+    tbody.innerHTML='<tr><td colspan="10" style="text-align:center;color:#94a3b8;padding:2rem;">Nenhum colaborador ativo.</td></tr>';
+    tfoot.innerHTML='';return;
+  }
+  let sumHoras=0,sumExtra=0,sumVH=0,sumVE=0,sumAdiant=0,sumLiq=0;
+  tbody.innerHTML=_folhaData.map(row=>{
+    const{emp,totalHoras,totalExtra,diasFalta,valorHora,valorHoras,valorExtra,totalAdiant,totalBruto,totalLiq,folhaFechada}=row;
+    sumHoras+=totalHoras;sumExtra+=totalExtra;sumVH+=valorHoras;sumVE+=valorExtra;sumAdiant+=totalAdiant;sumLiq+=totalLiq;
+    const fStatus=folhaFechada?'<span class="badge green" style="font-size:.65rem;">Fechada</span>':'';
+    const empNomeEsc=emp.nome.replace(/'/g,"\\'");
+    return `<tr ${folhaFechada?'style="opacity:.75;"':''}>
+      <td><span style="font-weight:600;">${emp.nome}</span> ${fStatus}<br><span style="font-size:.7rem;color:#64748b;">${emp.funcao||''}</span></td>
+      <td>R$ ${valorHora.toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+      <td style="text-align:right;">${totalHoras.toFixed(1)}h</td>
+      <td style="text-align:right;color:#16a34a;">${totalExtra.toFixed(1)}h</td>
+      <td style="text-align:right;${diasFalta?'color:#dc2626;font-weight:700;':''}">${diasFalta}</td>
+      <td style="text-align:right;">R$ ${valorHoras.toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+      <td style="text-align:right;color:#16a34a;">R$ ${valorExtra.toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+      <td style="text-align:right;color:#dc2626;">− R$ ${totalAdiant.toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+      <td style="text-align:right;font-weight:700;font-size:.9rem;">R$ ${totalLiq.toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+      <td><button class="btn btn-blue btn-sm" title="Adiantamentos" onclick="openAdiantModal('${emp.id}','${empNomeEsc}')">💰</button></td>
+    </tr>`;
+  }).join('');
+  tfoot.innerHTML=`<tr style="background:#f8fafc;font-weight:700;">
+    <td colspan="2" style="font-size:.8rem;">TOTAIS</td>
+    <td style="text-align:right;">${sumHoras.toFixed(1)}h</td>
+    <td style="text-align:right;color:#16a34a;">${sumExtra.toFixed(1)}h</td>
+    <td></td>
+    <td style="text-align:right;">R$ ${sumVH.toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+    <td style="text-align:right;color:#16a34a;">R$ ${sumVE.toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+    <td style="text-align:right;color:#dc2626;">− R$ ${sumAdiant.toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+    <td style="text-align:right;font-size:.95rem;">R$ ${sumLiq.toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+    <td></td>
+  </tr>`;
+  document.getElementById('folha-resumo').innerHTML=
+    `<strong>${_folhaData.length}</strong> colaboradores &nbsp;|&nbsp; Total Líquido: <strong style="color:#0B1D33;">R$ ${sumLiq.toLocaleString('pt-BR',{minimumFractionDigits:2})}</strong>`;
+}
+
+async function fecharFolha(){
+  const mes=document.getElementById('folha-mes').value;
+  if(!mes||!_folhaData.length)return;
+  const jaFechadas=_folhaData.filter(r=>r.folhaFechada).length;
+  if(!confirm(`Fechar folha de ${mes}?\n${_folhaData.length} colaboradores serão registrados.${jaFechadas?' Folhas já fechadas serão sobrescritas.':''}`))return;
+  const{data:{user}}=await sb.auth.getUser();
+  const upserts=_folhaData.map(row=>{
+    const{emp,totalHoras,totalExtra,diasFalta,diasTrab,valorHora,valorHoras,valorExtra,totalAdiant,totalBruto,totalLiq}=row;
+    return{employee_id:emp.id,mes_ano:mes,dias_trabalhados:diasTrab,total_horas:totalHoras,
+      horas_extra:totalExtra,dias_falta:diasFalta,valor_hora:valorHora,valor_horas:valorHoras,
+      valor_extra:valorExtra,adiantamentos:totalAdiant,total_bruto:totalBruto,total_liquido:totalLiq,
+      status:'fechado',fechado_por:user?.id,fechado_em:new Date().toISOString()};
+  });
+  const{error}=await sb.from('obs_folhas').upsert(upserts,{onConflict:'employee_id,mes_ano'});
+  if(error){toast('Erro ao fechar folha: '+error.message,'e');return;}
+  const empIds=_folhaData.map(r=>r.emp.id);
+  await sb.from('obs_adiantamentos').update({status:'descontado'})
+    .eq('mes_referencia',mes).eq('status','pendente').in('employee_id',empIds);
+  toast(`Folha de ${mes} fechada com sucesso!`,'s');
+  await calcularFolha();
+}
+
+// ── ADIANTAMENTOS ──────────────────────────────────────────────────
+async function openAdiantModal(empId,empNome){
+  _adiantEmpId=empId;
+  document.getElementById('adiant-emp-nome').textContent=empNome;
+  const mes=document.getElementById('folha-mes').value||new Date().toISOString().slice(0,7);
+  document.getElementById('adi-mes').value=mes;
+  document.getElementById('adi-data').value=new Date().toISOString().split('T')[0];
+  document.getElementById('adi-valor').value='';
+  document.getElementById('adi-desc').value='';
+  document.getElementById('modal-adiant').style.display='flex';
+  await loadAdiantamentos(empId);
+}
+
+async function loadAdiantamentos(empId){
+  const{data}=await sb.from('obs_adiantamentos').select('*').eq('employee_id',empId).order('data',{ascending:false}).limit(30);
+  const list=document.getElementById('adiant-list');
+  if(!data||!data.length){list.innerHTML='<div style="color:#94a3b8;font-size:.82rem;padding:.5rem 0;">Nenhum adiantamento registrado.</div>';return;}
+  list.innerHTML='<div style="font-size:.72rem;font-weight:700;color:#64748b;margin:0 0 .4rem;text-transform:uppercase;">Histórico</div>'+
+    data.map(a=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:.45rem 0;border-bottom:1px solid #f1f5f9;gap:.5rem;">
+      <div style="flex:1;">
+        <span style="font-weight:600;color:#374151;">R$ ${(a.valor||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</span>
+        ${a.descricao?`<span style="font-size:.75rem;color:#64748b;margin-left:.35rem;">${a.descricao}</span>`:''}
+      </div>
+      <div style="display:flex;align-items:center;gap:.4rem;flex-shrink:0;">
+        <span style="font-size:.72rem;color:#94a3b8;">${a.mes_referencia||''}</span>
+        <span class="badge ${a.status==='descontado'?'green':'yellow'}">${a.status}</span>
+        ${a.status==='pendente'?`<button class="btn btn-danger btn-sm" style="padding:.15rem .4rem;font-size:.68rem;" onclick="deleteAdiant('${a.id}')">✕</button>`:''}
+      </div>
+    </div>`).join('');
+}
+
+async function saveAdiantamento(){
+  if(!_adiantEmpId)return;
+  const valor=parseFloat(document.getElementById('adi-valor').value);
+  if(!valor||valor<=0){toast('Informe um valor válido','w');return;}
+  const payload={
+    employee_id:_adiantEmpId,valor,
+    data:document.getElementById('adi-data').value||new Date().toISOString().split('T')[0],
+    descricao:document.getElementById('adi-desc').value.trim(),
+    mes_referencia:document.getElementById('adi-mes').value,
+    status:'pendente'
+  };
+  const{error}=await sb.from('obs_adiantamentos').insert(payload);
+  if(error){toast('Erro: '+error.message,'e');return;}
+  toast('Adiantamento registrado','s');
+  document.getElementById('adi-valor').value='';
+  document.getElementById('adi-desc').value='';
+  await loadAdiantamentos(_adiantEmpId);
+}
+
+async function deleteAdiant(id){
+  if(!confirm('Remover este adiantamento?'))return;
+  const{error}=await sb.from('obs_adiantamentos').delete().eq('id',id);
+  if(error){toast('Erro: '+error.message,'e');return;}
+  toast('Adiantamento removido','s');
+  await loadAdiantamentos(_adiantEmpId);
 }
 
 // ── HELPERS ────────────────────────────────────────────────────────
@@ -662,6 +917,9 @@ function toast(msg,type=''){
 }
 
 boot();
+
+// restore sidebar state
+(()=>{const _sc=localStorage.getItem('obs_sidebar')==='1';if(_sc){document.getElementById('sidebar')?.classList.add('collapsed');document.getElementById('main')?.classList.add('expanded');}})();
 </script>
 </body>
 </html>
