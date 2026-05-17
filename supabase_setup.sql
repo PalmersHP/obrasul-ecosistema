@@ -524,6 +524,116 @@ insert into public.obs_categories (nome, tipo) values
 ('Entrega final','receita')
 on conflict do nothing;
 
+-- ── 24. CONFIGURAÇÕES DO SISTEMA ─────────────────────────────
+create table if not exists public.obs_configuracoes (
+  chave      text primary key,
+  valor      jsonb default '{}',
+  updated_at timestamptz default now()
+);
+alter table public.obs_configuracoes enable row level security;
+create policy "obs_config_auth" on public.obs_configuracoes
+  for all using (auth.uid() is not null)
+  with check (auth.uid() is not null);
+
+-- Valores iniciais
+insert into public.obs_configuracoes (chave, valor) values
+  ('empresa', '{"nome":"Obrasul","cnpj":"","telefone":"","email":"","endereco":"","cidade":"","estado":"SP","cep":"","descricao":""}'),
+  ('sistema', '{"tema":"light","moeda":"BRL","prazo_garantia_padrao":24,"notificacoes_email":true}')
+on conflict do nothing;
+
+-- ── 25. MIGRAÇÕES obs_purchase_requests ───────────────────────
+-- Colunas usadas em compras.html que podem não existir no schema inicial
+alter table public.obs_purchase_requests
+  add column if not exists quantidade   numeric(12,3) default 1,
+  add column if not exists unidade      text          default 'un',
+  add column if not exists justificativa text         default '',
+  add column if not exists nf_numero    text          default '',
+  add column if not exists data_compra  date;
+
+-- ── 26. CONTÊINER DE CONTRATOS ────────────────────────────────
+create table if not exists public.obs_contracts (
+  id                 uuid default gen_random_uuid() primary key,
+  project_id         uuid references public.obs_projects on delete cascade,
+  numero             text default '',
+  tipo               text not null default 'prestacao_servicos'
+                     check (tipo in ('prestacao_servicos','fornecimento','manutencao','outro')),
+  objeto             text default '',
+  status             text not null default 'em_negociacao'
+                     check (status in ('em_negociacao','em_vigor','encerrado','rescindido')),
+  valor              numeric(15,2) default 0,
+  data_assinatura    date,
+  data_inicio        date,
+  data_fim           date,
+  contratante        text default '',
+  condicoes_pagamento text default '',
+  penalidades        text default '',
+  created_at         timestamptz default now(),
+  updated_at         timestamptz default now()
+);
+alter table public.obs_contracts enable row level security;
+create policy "obs_contracts_auth" on public.obs_contracts
+  for all using (auth.uid() is not null)
+  with check (auth.uid() is not null);
+
+-- ── 27. ESTOQUE ───────────────────────────────────────────────
+create table if not exists public.obs_stock (
+  id                uuid default gen_random_uuid() primary key,
+  nome              text not null,
+  codigo            text default '',
+  categoria         text default '',
+  local             text default '',
+  quantidade        numeric(12,3) default 0,
+  unidade           text default 'un',
+  quantidade_minima numeric(12,3) default 0,
+  valor_unitario    numeric(12,2) default 0,
+  fornecedor        text default '',
+  ativo             boolean default true,
+  created_at        timestamptz default now(),
+  updated_at        timestamptz default now()
+);
+alter table public.obs_stock enable row level security;
+create policy "obs_stock_auth" on public.obs_stock
+  for all using (auth.uid() is not null)
+  with check (auth.uid() is not null);
+
+create table if not exists public.obs_stock_movimentos (
+  id          uuid default gen_random_uuid() primary key,
+  stock_id    uuid references public.obs_stock on delete cascade,
+  tipo        text not null check (tipo in ('entrada','saida','ajuste')),
+  quantidade  numeric(12,3) not null,
+  responsavel text default '',
+  motivo      text default '',
+  created_at  timestamptz default now()
+);
+alter table public.obs_stock_movimentos enable row level security;
+create policy "obs_stock_mov_auth" on public.obs_stock_movimentos
+  for all using (auth.uid() is not null)
+  with check (auth.uid() is not null);
+
+-- ── 28. GARANTIAS (CHAMADOS PÓS-OBRA) ────────────────────────
+create table if not exists public.obs_garantias (
+  id            uuid default gen_random_uuid() primary key,
+  project_id    uuid references public.obs_projects on delete cascade,
+  descricao     text not null,
+  tipo          text not null default 'outro'
+                check (tipo in ('hidraulico','eletrico','estrutural','acabamento','infiltracao','outro')),
+  urgencia      text not null default 'media'
+                check (urgencia in ('baixa','media','alta')),
+  solicitante   text default '',
+  contato       text default '',
+  data_abertura date default current_date,
+  prazo         date,
+  responsavel   text default '',
+  status        text not null default 'aberto'
+                check (status in ('aberto','em_atendimento','aguardando_material','resolvido','cancelado')),
+  created_at    timestamptz default now(),
+  updated_at    timestamptz default now()
+);
+alter table public.obs_garantias enable row level security;
+create policy "obs_garantias_auth" on public.obs_garantias
+  for all using (auth.uid() is not null)
+  with check (auth.uid() is not null);
+
 -- ============================================================
 -- PRONTO! Próximos passos:
 -- 1. Abra o hub (index.html) e crie o primeiro usuário (vira proprietário)

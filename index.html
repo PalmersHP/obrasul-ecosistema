@@ -107,7 +107,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#f1f5f9;color:#1e293
 .dash-heading p{font-size:.85rem;color:#64748b;margin-top:.2rem;}
 
 /* ── KPI cards ── */
-.kpi-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:.9rem;margin-bottom:1.5rem;}
+.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:.9rem;margin-bottom:1.5rem;}
 @media(max-width:1400px){.kpi-grid{grid-template-columns:repeat(3,1fr);}}
 @media(max-width:900px){.kpi-grid{grid-template-columns:repeat(2,1fr);}}
 .kpi{background:#fff;border-radius:.75rem;padding:1rem 1.1rem;box-shadow:0 1px 4px #0001;display:flex;align-items:flex-start;gap:.8rem;}
@@ -418,8 +418,12 @@ tr:hover td{background:#fafafa;}
         <div class="kpi"><div class="kpi-icon blue">&#x1F4CB;</div><div class="kpi-body"><div class="kpi-label">Propostas em aberto</div><div class="kpi-value" id="k-prop">—</div><div class="kpi-trend neutral" id="k-prop-t">—</div></div></div>
         <div class="kpi"><div class="kpi-icon green">&#x1F4B5;</div><div class="kpi-body"><div class="kpi-label">Faturamento previsto</div><div class="kpi-value" id="k-fat">—</div><div class="kpi-trend neutral" id="k-fat-t">—</div></div></div>
         <div class="kpi"><div class="kpi-icon purple">&#x1F4E5;</div><div class="kpi-body"><div class="kpi-label">Recebíveis do mês</div><div class="kpi-value" id="k-rec">—</div><div class="kpi-trend neutral" id="k-rec-t">—</div></div></div>
-        <div class="kpi"><div class="kpi-icon red">&#x26A0;&#xFE0F;</div><div class="kpi-body"><div class="kpi-label">Pendências críticas</div><div class="kpi-value" id="k-pend">—</div><div class="kpi-trend neutral" id="k-pend-t">—</div></div></div>
         <div class="kpi"><div class="kpi-icon teal">&#x1F4C9;</div><div class="kpi-body"><div class="kpi-label">Margem média</div><div class="kpi-value" id="k-marg">—</div><div class="kpi-trend neutral" id="k-marg-t">—</div></div></div>
+        <div class="kpi"><div class="kpi-icon red">&#x26A0;&#xFE0F;</div><div class="kpi-body"><div class="kpi-label">Pendências críticas</div><div class="kpi-value" id="k-pend">—</div><div class="kpi-trend neutral" id="k-pend-t">—</div></div></div>
+        <div class="kpi"><div class="kpi-icon blue">&#x1F465;</div><div class="kpi-body"><div class="kpi-label">Colaboradores ativos</div><div class="kpi-value" id="k-equipe">—</div><div class="kpi-trend neutral" id="k-equipe-t">—</div></div></div>
+        <div class="kpi"><div class="kpi-icon orange">&#x1F6E0;&#xFE0F;</div><div class="kpi-body"><div class="kpi-label">Garantias abertas</div><div class="kpi-value" id="k-gar">—</div><div class="kpi-trend neutral" id="k-gar-t">—</div></div></div>
+        <div class="kpi"><div class="kpi-icon purple">&#x1F4AC;</div><div class="kpi-body"><div class="kpi-label">Msgs não lidas</div><div class="kpi-value" id="k-msg">—</div><div class="kpi-trend neutral" id="k-msg-t">—</div></div></div>
+        <div class="kpi"><div class="kpi-icon red">&#x1F4E6;</div><div class="kpi-body"><div class="kpi-label">Estoque crítico</div><div class="kpi-value" id="k-stk">—</div><div class="kpi-trend neutral" id="k-stk-t">—</div></div></div>
       </div>
 
       <!-- Apps principals -->
@@ -731,17 +735,29 @@ async function loadDashboard() {
     { data: cr },
     { data: cp },
     { data: orc },
+    { data: emp },
+    { data: gar },
+    { data: msgs },
+    { data: stk },
   ] = await Promise.all([
     sb.from('obs_projects').select('id,nome,status,valor_contrato,valor_custo,data_prev_fim,client_id,descricao_servico,updated_at').order('updated_at',{ascending:false}),
     sb.from('obs_receivables').select('id,valor,status,data_vencimento'),
     sb.from('obs_payables').select('id,valor,status,data_vencimento'),
     sb.from('obs_orcamentos').select('id,valor_total,status'),
+    sb.from('obs_employees').select('id,ativo').eq('ativo',true),
+    sb.from('obs_garantias').select('id,status').in('status',['aberto','em_atendimento']),
+    sb.from('obs_comunicados').select('id,lido,remetente').eq('lido',false).eq('remetente','sindico'),
+    sb.from('obs_stock').select('id,nome,quantidade,quantidade_minima').eq('ativo',true),
   ]);
 
   const obras  = proj || [];
   const recvs  = cr   || [];
   const pays   = cp   || [];
   const orcs   = orc  || [];
+  const emps   = emp  || [];
+  const gars   = gar  || [];
+  const unread = msgs || [];
+  const stocks = stk  || [];
 
   // KPI 1 — Obras em andamento
   const obrasAtivas = obras.filter(o => ['mobilizacao','em_execucao','vistoria'].includes(o.status));
@@ -773,13 +789,34 @@ async function loadDashboard() {
   document.getElementById('k-pend-t').textContent = pendCrit > 0 ? 'recebíveis vencidos' : 'nenhuma pendência';
   document.getElementById('k-pend-t').className = 'kpi-trend ' + (pendCrit > 0 ? 'down' : 'up');
 
-  // KPI 6 — Margem média
+  // KPI 5 — Margem média
   const totalContrato = obras.reduce((s,o)=>s+(+o.valor_contrato||0),0);
   const totalCusto    = obras.reduce((s,o)=>s+(+o.valor_custo||0),0);
   const marg = totalContrato > 0 ? Math.round((totalContrato-totalCusto)/totalContrato*100) : 0;
   document.getElementById('k-marg').textContent = marg + '%';
   document.getElementById('k-marg-t').textContent = 'sobre contratos';
   document.getElementById('k-marg-t').className = 'kpi-trend ' + (marg >= 20 ? 'up' : marg >= 10 ? 'neutral' : 'down');
+
+  // KPI 7 — Colaboradores ativos
+  document.getElementById('k-equipe').textContent = emps.length;
+  document.getElementById('k-equipe-t').textContent = 'cadastrados e ativos';
+  document.getElementById('k-equipe-t').className = 'kpi-trend neutral';
+
+  // KPI 8 — Garantias abertas
+  document.getElementById('k-gar').textContent = gars.length;
+  document.getElementById('k-gar-t').textContent = gars.length > 0 ? 'chamados em aberto' : 'sem chamados';
+  document.getElementById('k-gar-t').className = 'kpi-trend ' + (gars.length > 0 ? 'down' : 'up');
+
+  // KPI 9 — Mensagens não lidas (do síndico)
+  document.getElementById('k-msg').textContent = unread.length;
+  document.getElementById('k-msg-t').textContent = unread.length > 0 ? 'do síndico pendentes' : 'nenhuma pendente';
+  document.getElementById('k-msg-t').className = 'kpi-trend ' + (unread.length > 0 ? 'down' : 'up');
+
+  // KPI 10 — Itens de estoque crítico (qty <= qty_min)
+  const critico = stocks.filter(s => (+s.quantidade||0) <= (+s.quantidade_minima||0)).length;
+  document.getElementById('k-stk').textContent = critico;
+  document.getElementById('k-stk-t').textContent = critico > 0 ? 'itens abaixo do mínimo' : 'estoque normal';
+  document.getElementById('k-stk-t').className = 'kpi-trend ' + (critico > 0 ? 'down' : 'up');
 
   // Obras table
   const clientIds = [...new Set(obrasAtivas.map(o=>o.client_id).filter(Boolean))];

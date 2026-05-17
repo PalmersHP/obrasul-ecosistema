@@ -199,7 +199,7 @@ tr:hover td{background:#fafafa;}
       <a href="comunicados.html" class="nav-item"><span class="ic">📢</span><span class="lbl">Comunicados</span></a>
       <a href="biblioteca.html" class="nav-item"><span class="ic">📚</span><span class="lbl">Biblioteca</span></a>
       <a href="relatorios.html" class="nav-item"><span class="ic">📊</span><span class="lbl">Relatórios</span></a>
-      <a href="index.html#configuracoes" class="nav-item"><span class="ic">⚙️</span><span class="lbl">Configurações</span></a>
+      <a href="configuracoes.html" class="nav-item"><span class="ic">⚙️</span><span class="lbl">Configurações</span></a>
     </div>
     <div class="sidebar-footer">
       <div class="user-info sidebar-footer-text">
@@ -1192,7 +1192,7 @@ async function publicarRdo(id){
   const r=_rdos.find(x=>x.id===id);
   if(!r)return;
   const resumo=`Em ${fmtDate(r.data)}, foram executados serviços de ${r.atividades?.substring(0,200)||'—'}. ${r.programacao?'Próximo dia: '+r.programacao.substring(0,100)+'.':''}`;
-  await sb.from('obs_comunicados').insert({project_id:_currentObra.id,titulo:`Atualização ${fmtDate(r.data)}`,texto:resumo,tipo:'rdo',publicado:true,created_by:_user?.id});
+  await sb.from('obs_comunicados').insert({project_id:_currentObra.id,remetente:'obrasul',remetente_nome:_user?.nome||'Obrasul',mensagem:resumo,tipo:'informativo',lido:false});
   toast('Resumo publicado no Portal do Síndico','s');
 }
 
@@ -1691,44 +1691,48 @@ async function loadComunicados(){
 function renderComunicados(){
   const wrap=document.getElementById('com-list');
   if(!_comunicados.length){wrap.innerHTML='<p style="text-align:center;color:#94a3b8;font-size:.78rem;padding:1.5rem;">Nenhum comunicado.</p>';return;}
+  const tipoLabel={informativo:'Informativo',urgente:'Urgente',solicitacao:'Solicitação',resposta:'Resposta'};
+  const tipoColor={informativo:'blue',urgente:'red',solicitacao:'orange',resposta:'green'};
   wrap.innerHTML=_comunicados.map(c=>`
-    <div class="comunicado-card">
+    <div class="comunicado-card" style="${!c.lido&&c.remetente==='sindico'?'border-left:3px solid #E87722;':'' }">
       <div style="flex:1;">
-        <div style="font-weight:700;color:#0B1D33;margin-bottom:.2rem;">${c.titulo||'—'}</div>
-        <div style="font-size:.78rem;color:#374151;margin-bottom:.4rem;">${c.texto?.substring(0,200)||'—'}</div>
-        <div style="font-size:.68rem;color:#94a3b8;">${fmtDate(c.created_at)} · Tipo: ${c.tipo||'—'}</div>
+        <div style="font-weight:700;color:#0B1D33;margin-bottom:.2rem;font-size:.82rem;">${c.remetente_nome||'—'} <span style="font-size:.68rem;color:#94a3b8;font-weight:400;">(${c.remetente==='sindico'?'Síndico':'Obrasul'})</span></div>
+        <div style="font-size:.78rem;color:#374151;margin-bottom:.4rem;">${(c.mensagem||'').substring(0,200)}</div>
+        <div style="font-size:.68rem;color:#94a3b8;">${fmtDate(c.created_at)} · <span class="badge ${tipoColor[c.tipo]||'gray'}">${tipoLabel[c.tipo]||c.tipo||'—'}</span></div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.3rem;">
-        <span class="badge ${c.publicado?'green':'gray'}">${c.publicado?'Publicado':'Rascunho'}</span>
-        ${!c.publicado?`<button class="btn btn-og btn-sm" onclick="publicarCom('${c.id}')">Publicar</button>`:''}
+        ${!c.lido&&c.remetente==='sindico'?`<button class="btn btn-og btn-sm" onclick="markLido('${c.id}')">Marcar lido</button>`:'<span class="badge green" style="font-size:.62rem;">Lido</span>'}
         <button class="btn btn-danger btn-sm" onclick="deleteCom('${c.id}')">🗑️</button>
       </div>
     </div>`).join('');
 }
 function openComModal(){
   openModal('Novo Comunicado',`
-    <div class="field"><label>Título</label><input id="cm-titulo" style="width:100%;padding:.5rem .75rem;border:1px solid #cbd5e1;border-radius:.45rem;font-size:.85rem;outline:none;"></div>
-    <div class="field"><label>Texto</label><textarea id="cm-texto" style="width:100%;padding:.5rem .75rem;border:1px solid #cbd5e1;border-radius:.45rem;font-size:.85rem;outline:none;min-height:100px;"></textarea></div>
-    <div class="field-row">
-      <div class="field"><label>Tipo</label><select id="cm-tipo" style="width:100%;padding:.5rem .75rem;border:1px solid #cbd5e1;border-radius:.45rem;font-size:.85rem;outline:none;">
-        <option>geral</option><option>rdo</option><option>alerta</option><option>aviso</option><option>entrega</option>
-      </select></div>
-      <div class="field"><label>Publicar agora?</label><select id="cm-pub" style="width:100%;padding:.5rem .75rem;border:1px solid #cbd5e1;border-radius:.45rem;font-size:.85rem;outline:none;">
-        <option value="false">Rascunho</option><option value="true">Sim, publicar</option>
-      </select></div>
-    </div>
+    <div class="field"><label>Mensagem</label><textarea id="cm-msg" style="width:100%;padding:.5rem .75rem;border:1px solid #cbd5e1;border-radius:.45rem;font-size:.85rem;outline:none;min-height:100px;resize:vertical;"></textarea></div>
+    <div class="field"><label>Tipo</label><select id="cm-tipo" style="width:100%;padding:.5rem .75rem;border:1px solid #cbd5e1;border-radius:.45rem;font-size:.85rem;outline:none;">
+      <option value="informativo">Informativo</option>
+      <option value="urgente">Urgente</option>
+      <option value="solicitacao">Solicitação</option>
+      <option value="resposta">Resposta</option>
+    </select></div>
   `,`<button class="btn btn-outline btn-sm" onclick="closeModal()">Cancelar</button>
-     <button class="btn btn-og btn-sm" onclick="saveCom()">Salvar</button>`);
+     <button class="btn btn-og btn-sm" onclick="saveCom()">Enviar</button>`);
 }
 async function saveCom(){
-  const titulo=document.getElementById('cm-titulo').value.trim();
-  const texto=document.getElementById('cm-texto').value.trim();
-  if(!titulo||!texto){toast('Preencha título e texto','w');return;}
-  const{error}=await sb.from('obs_comunicados').insert({project_id:_currentObra.id,titulo,texto,tipo:document.getElementById('cm-tipo').value,publicado:document.getElementById('cm-pub').value==='true',created_by:_user?.id});
-  if(error){toast('Erro','e');return;}
-  closeModal();await loadComunicados();toast('Comunicado salvo','s');
+  const mensagem=document.getElementById('cm-msg').value.trim();
+  if(!mensagem){toast('Escreva a mensagem','w');return;}
+  const{error}=await sb.from('obs_comunicados').insert({
+    project_id:_currentObra.id,
+    remetente:'obrasul',
+    remetente_nome:_user?.nome||'Obrasul',
+    mensagem,
+    tipo:document.getElementById('cm-tipo').value,
+    lido:false
+  });
+  if(error){toast('Erro ao enviar','e');return;}
+  closeModal();await loadComunicados();toast('Comunicado enviado','s');
 }
-async function publicarCom(id){await sb.from('obs_comunicados').update({publicado:true}).eq('id',id);await loadComunicados();toast('Publicado','s');}
+async function markLido(id){await sb.from('obs_comunicados').update({lido:true}).eq('id',id);await loadComunicados();toast('Marcado como lido','s');}
 async function deleteCom(id){if(!confirm('Excluir?'))return;await sb.from('obs_comunicados').delete().eq('id',id);await loadComunicados();}
 
 // ── TAB 12: GARANTIA ──────────────────────────────────────────────────────────

@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Configurações — Obrasul</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+:root{--navy:#0B1D33;--orange:#E87722;--sidebar:220px;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:"Segoe UI",system-ui,sans-serif;background:#f1f5f9;color:#1e293b;}
+#login-overlay{position:fixed;inset:0;z-index:300;background:#0B1D33;display:flex;align-items:center;justify-content:center;}
+.login-card{background:#fff;border-radius:1rem;padding:2.5rem;width:100%;max-width:400px;box-shadow:0 20px 60px #0008;}
+.inp{width:100%;padding:.6rem .85rem;border:1px solid #cbd5e1;border-radius:.5rem;font-size:.9rem;outline:none;}
+.inp:focus{border-color:#E87722;box-shadow:0 0 0 3px #E8772222;}
+.btn-primary{width:100%;background:#E87722;color:#fff;border:none;padding:.7rem;border-radius:.5rem;font-weight:700;cursor:pointer;margin-top:1rem;}
+.sidebar{position:fixed;top:0;left:0;bottom:0;width:var(--sidebar);background:#0B1D33;display:flex;flex-direction:column;z-index:100;overflow-y:auto;transition:.25s;}
+.sidebar.collapsed{width:60px;}
+.sidebar-logo{padding:1rem;border-bottom:1px solid #1e3a5f;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.sidebar-logo img{width:140px;max-width:100%;object-fit:contain;transition:.25s;}
+.sidebar.collapsed .sidebar-logo img{width:32px;}
+.sidebar.collapsed .nav-label,.sidebar.collapsed .nav-item span.lbl,.sidebar.collapsed .sidebar-footer-text{display:none;}
+.sidebar.collapsed .nav-item{justify-content:center;padding:.55rem 0;}
+.nav-section{padding:.5rem 0;flex-shrink:0;}
+.nav-label{font-size:.6rem;font-weight:800;letter-spacing:.12em;color:#475569;padding:.75rem 1rem .25rem;text-transform:uppercase;}
+.nav-item{display:flex;align-items:center;gap:.6rem;padding:.55rem 1rem;font-size:.82rem;color:#94a3b8;cursor:pointer;transition:.15s;border-left:3px solid transparent;text-decoration:none;}
+.nav-item:hover{color:#fff;background:#1e3a5f;}
+.nav-item.active{color:#E87722;border-left-color:#E87722;background:#1e3a5f22;font-weight:600;}
+.nav-item .ic{font-size:1rem;width:1.2rem;text-align:center;flex-shrink:0;}
+.sidebar-footer{margin-top:auto;border-top:1px solid #1e3a5f;padding:.75rem 1rem;flex-shrink:0;}
+.user-info{font-size:.75rem;color:#94a3b8;line-height:1.5;}
+.user-info b{color:#fff;display:block;}
+.btn-logout{width:100%;margin-top:.5rem;background:#1e3a5f;color:#94a3b8;border:none;padding:.4rem;border-radius:.4rem;font-size:.75rem;cursor:pointer;}
+.btn-logout:hover{background:#ef4444;color:#fff;}
+#app{display:none;}
+.main{margin-left:var(--sidebar);min-height:100vh;display:flex;flex-direction:column;transition:.25s;}
+.main.expanded{margin-left:60px;}
+.top-bar{background:#fff;border-bottom:1px solid #e2e8f0;padding:.6rem 1.5rem;display:flex;align-items:center;gap:.75rem;position:sticky;top:0;z-index:50;}
+.top-bar h2{font-size:1rem;font-weight:700;color:#0B1D33;}
+.page-wrap{padding:1.5rem;flex:1;max-width:900px;}
+.card{background:#fff;border-radius:.75rem;box-shadow:0 1px 4px #0001;}
+.btn{padding:.4rem .9rem;border-radius:.45rem;font-size:.8rem;font-weight:600;cursor:pointer;border:none;transition:.15s;}
+.btn-og{background:#E87722;color:#fff;}.btn-og:hover{background:#d06918;}
+.btn-outline{background:#fff;color:#374151;border:1px solid #e2e8f0;}.btn-outline:hover{background:#f8fafc;}
+.btn-sm{padding:.3rem .65rem;font-size:.75rem;}
+.btn-danger{background:#fef2f2;color:#dc2626;border:1px solid #fecaca;}.btn-danger:hover{background:#dc2626;color:#fff;}
+.btn-green{background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;}.btn-green:hover{background:#166534;color:#fff;}
+.badge{display:inline-block;padding:.15rem .55rem;border-radius:9999px;font-size:.68rem;font-weight:700;}
+.badge.blue{background:#eff6ff;color:#1d4ed8;}.badge.green{background:#f0fdf4;color:#166534;}
+.badge.red{background:#fef2f2;color:#dc2626;}.badge.gray{background:#f1f5f9;color:#475569;}
+.badge.orange{background:#fff7ed;color:#c2410c;}
+#modal-overlay{position:fixed;inset:0;background:#0006;z-index:200;display:none;align-items:center;justify-content:center;padding:1rem;}
+#modal-overlay.open{display:flex;}
+.modal{background:#fff;border-radius:1rem;width:100%;max-width:520px;max-height:92vh;overflow-y:auto;box-shadow:0 20px 60px #0004;}
+.modal-header{padding:1.1rem 1.4rem;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:1;}
+.modal-header h3{font-size:1rem;font-weight:700;color:#0B1D33;}
+.modal-body{padding:1.2rem 1.4rem;display:flex;flex-direction:column;gap:.85rem;}
+.modal-footer{padding:.9rem 1.4rem;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:.5rem;}
+.field label{display:block;font-size:.78rem;font-weight:600;color:#374151;margin-bottom:.3rem;}
+.field input,.field select,.field textarea{width:100%;padding:.5rem .75rem;border:1px solid #cbd5e1;border-radius:.45rem;font-size:.85rem;outline:none;transition:.15s;}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:#E87722;box-shadow:0 0 0 3px #E8772222;}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;}
+#toast-area{position:fixed;bottom:1.5rem;right:1.5rem;z-index:999;display:flex;flex-direction:column;gap:.5rem;}
+.toast{background:#1e293b;color:#fff;padding:.65rem 1rem;border-radius:.5rem;font-size:.82rem;font-weight:500;box-shadow:0 4px 16px #0004;animation:fadeUp .25s ease;max-width:320px;}
+.toast.s{background:#166534;}.toast.e{background:#dc2626;}.toast.w{background:#92400e;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.section-block{background:#fff;border-radius:.75rem;box-shadow:0 1px 4px #0001;padding:1.25rem 1.4rem;margin-bottom:1.25rem;}
+.section-block h3{font-size:.88rem;font-weight:700;color:#0B1D33;margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid #f1f5f9;}
+.logo-preview{width:120px;height:60px;object-fit:contain;border:1px solid #e2e8f0;border-radius:.5rem;background:#f8fafc;padding:.25rem;}
+.user-row{display:flex;align-items:center;gap:.75rem;padding:.6rem 0;border-bottom:1px solid #f1f5f9;}
+.user-row:last-child{border-bottom:none;}
+.avatar{width:36px;height:36px;border-radius:50%;background:#E87722;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;flex-shrink:0;}
+table{width:100%;border-collapse:collapse;font-size:.82rem;}
+th{background:#f8fafc;padding:.5rem .85rem;text-align:left;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e2e8f0;}
+td{padding:.55rem .85rem;border-bottom:1px solid #f1f5f9;color:#374151;vertical-align:middle;}
+tr:hover td{background:#fafafa;}
+.tab-bar{display:flex;gap:0;border-bottom:2px solid #e2e8f0;margin-bottom:1.25rem;}
+.tab{padding:.55rem 1.1rem;font-size:.82rem;font-weight:600;color:#64748b;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:.15s;white-space:nowrap;}
+.tab.active{color:#E87722;border-bottom-color:#E87722;}
+.tab-panel{display:none;}.tab-panel.active{display:block;}
+</style>
+</head>
+<body>
+<div id="login-overlay">
+  <div class="login-card">
+    <div style="text-align:center;margin-bottom:1.5rem;"><img id="li-logo" src="" alt="Obrasul" style="height:50px;object-fit:contain;margin:0 auto;"></div>
+    <div class="field" style="margin-bottom:.75rem;"><label>E-mail</label><input class="inp" type="email" id="li-email" placeholder="seu@email.com"></div>
+    <div class="field" style="margin-bottom:.75rem;"><label>Senha</label><input class="inp" type="password" id="li-pw" placeholder="••••••••"></div>
+    <div id="li-err" style="color:#dc2626;font-size:.8rem;min-height:1.2rem;"></div>
+    <button class="btn-primary" onclick="doLogin()">Entrar</button>
+  </div>
+</div>
+
+<div id="app">
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo"><img id="sb-logo" src="" alt="Obrasul"></div>
+  <div style="padding:.5rem .6rem;border-bottom:1px solid #1e3a5f;flex-shrink:0;">
+    <button onclick="toggleSidebar()" style="width:100%;background:#1e3a5f22;color:#94a3b8;border:none;border-radius:.4rem;padding:.35rem;font-size:.8rem;cursor:pointer;">☰</button>
+  </div>
+  
+  <nav class="nav-section">
+    <div class="nav-label">Principal</div>
+    <a href="index.html" class="nav-item"><span class="ic">🏠</span><span class="lbl">Dashboard</span></a>
+    <a href="clientes.html" class="nav-item"><span class="ic">🏢</span><span class="lbl">Clientes</span></a>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-label">Operações</div>
+    <a href="orcamentos.html" class="nav-item"><span class="ic">📋</span><span class="lbl">Orçamentos</span></a>
+    <a href="obras.html" class="nav-item"><span class="ic">🏗️</span><span class="lbl">Obras</span></a>
+    <a href="financeiro.html" class="nav-item"><span class="ic">💰</span><span class="lbl">Financeiro</span></a>
+    <a href="contratos.html" class="nav-item"><span class="ic">📄</span><span class="lbl">Contratos</span></a>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-label">Recursos</div>
+    <a href="compras.html" class="nav-item"><span class="ic">🛒</span><span class="lbl">Compras</span></a>
+    <a href="estoque.html" class="nav-item"><span class="ic">📦</span><span class="lbl">Estoque</span></a>
+    <a href="equipe.html" class="nav-item"><span class="ic">👷</span><span class="lbl">Equipe</span></a>
+    <a href="qualidade.html" class="nav-item"><span class="ic">✅</span><span class="lbl">Qualidade</span></a>
+    <a href="garantias.html" class="nav-item"><span class="ic">🛡️</span><span class="lbl">Garantias</span></a>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-label">Comunicação</div>
+    <a href="comunicados.html" class="nav-item"><span class="ic">📢</span><span class="lbl">Comunicados</span></a>
+    <a href="biblioteca.html" class="nav-item"><span class="ic">📚</span><span class="lbl">Biblioteca</span></a>
+    <a href="relatorios.html" class="nav-item"><span class="ic">📊</span><span class="lbl">Relatórios</span></a>
+    <a href="configuracoes.html" class="nav-item active"><span class="ic">⚙️</span><span class="lbl">Configurações</span></a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="user-info sidebar-footer-text"><b id="sb-user-name">—</b><span id="sb-user-email">—</span></div>
+    <button class="btn-logout" onclick="doLogout()">Sair</button>
+  </div>
+</aside>
+
+<div class="main" id="main">
+  <div class="top-bar">
+    <span style="font-size:1.2rem;">⚙️</span>
+    <h2>Configurações</h2>
+  </div>
+  <div class="page-wrap">
+
+    <div class="tab-bar">
+      <div class="tab active" onclick="switchTab('empresa',this)">🏢 Empresa</div>
+      <div class="tab" onclick="switchTab('usuarios',this)">👤 Usuários</div>
+      <div class="tab" onclick="switchTab('minha-conta',this)">🔑 Minha Conta</div>
+      <div class="tab" onclick="switchTab('sistema',this)">🛠️ Sistema</div>
+    </div>
+
+    <!-- EMPRESA -->
+    <div id="tab-empresa" class="tab-panel active">
+
+      <div class="section-block">
+        <h3>Logo da Empresa</h3>
+        <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+          <img id="logo-preview" src="" alt="Logo" class="logo-preview">
+          <div>
+            <div style="font-size:.82rem;color:#374151;margin-bottom:.5rem;">Será exibida na sidebar e login de todos os módulos.</div>
+            <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+              <button class="btn btn-og btn-sm" onclick="document.getElementById('logo-file').click()">📁 Escolher arquivo</button>
+              <input type="file" id="logo-file" accept="image/*" style="display:none;" onchange="uploadLogo(event)">
+            </div>
+            <div id="logo-progress" style="display:none;font-size:.75rem;color:#64748b;margin-top:.35rem;">Enviando…</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <h3>Dados da Empresa</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;">
+          <div class="field"><label>Razão Social</label><input id="emp-nome" type="text" placeholder="Obrasul Serviços Ltda."></div>
+          <div class="field"><label>CNPJ</label><input id="emp-cnpj" type="text" placeholder="00.000.000/0001-00"></div>
+          <div class="field"><label>Telefone</label><input id="emp-tel" type="text" placeholder="(11) 0000-0000"></div>
+          <div class="field"><label>E-mail de Contato</label><input id="emp-email" type="email" placeholder="contato@obrasul.com.br"></div>
+          <div class="field" style="grid-column:1/-1;"><label>Endereço</label><input id="emp-end" type="text" placeholder="Rua, nº, cidade — SP"></div>
+          <div class="field"><label>Site</label><input id="emp-site" type="text" placeholder="https://obrasul.com.br"></div>
+          <div class="field"><label>CREA / CAU</label><input id="emp-crea" type="text" placeholder="CREA-SP 000000-D"></div>
+        </div>
+        <div style="margin-top:1rem;display:flex;justify-content:flex-end;">
+          <button class="btn btn-og" onclick="saveEmpresa()">Salvar Dados</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- USUÁRIOS -->
+    <div id="tab-usuarios" class="tab-panel">
+      <div class="section-block">
+        <h3>Usuários do Sistema</h3>
+        <div style="display:flex;justify-content:flex-end;margin-bottom:.75rem;">
+          <button class="btn btn-og btn-sm" onclick="openUserModal()">+ Novo Usuário</button>
+        </div>
+        <table>
+          <thead><tr><th>Nome</th><th>E-mail</th><th>Cargo</th><th>Perfil</th><th>Status</th><th></th></tr></thead>
+          <tbody id="tbody-users"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- MINHA CONTA -->
+    <div id="tab-minha-conta" class="tab-panel">
+      <div class="section-block">
+        <h3>Perfil Pessoal</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;">
+          <div class="field"><label>Nome Completo</label><input id="me-nome" type="text" placeholder="Seu nome"></div>
+          <div class="field"><label>Cargo</label><input id="me-cargo" type="text" placeholder="Engenheiro, Diretor…"></div>
+          <div class="field"><label>Telefone</label><input id="me-tel" type="text" placeholder="(11) 9 0000-0000"></div>
+          <div class="field"><label>E-mail (somente leitura)</label><input id="me-email" type="email" disabled style="background:#f8fafc;color:#94a3b8;"></div>
+        </div>
+        <div style="margin-top:1rem;display:flex;justify-content:flex-end;">
+          <button class="btn btn-og" onclick="savePerfil()">Salvar Perfil</button>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <h3>Alterar Senha</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;">
+          <div class="field"><label>Nova Senha</label><input id="pw-new" type="password" placeholder="Mínimo 6 caracteres"></div>
+          <div class="field"><label>Confirmar Senha</label><input id="pw-conf" type="password" placeholder="Repita a nova senha"></div>
+        </div>
+        <div style="margin-top:1rem;display:flex;justify-content:flex-end;">
+          <button class="btn btn-og" onclick="changePw()">Alterar Senha</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SISTEMA -->
+    <div id="tab-sistema" class="tab-panel">
+      <div class="section-block">
+        <h3>Informações do Sistema</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;font-size:.85rem;">
+          <div style="color:#64748b;">Versão</div><div style="font-weight:600;">Ecossistema Obrasul v1.0</div>
+          <div style="color:#64748b;">Banco de dados</div><div style="font-weight:600;">Supabase (PostgreSQL)</div>
+          <div style="color:#64748b;">Hospedagem</div><div style="font-weight:600;">Vercel (CDN global)</div>
+          <div style="color:#64748b;">Módulos ativos</div><div style="font-weight:600;" id="mod-count">—</div>
+          <div style="color:#64748b;">Usuários cadastrados</div><div style="font-weight:600;" id="user-count">—</div>
+          <div style="color:#64748b;">Total de obras</div><div style="font-weight:600;" id="obras-count">—</div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <h3>Tabelas SQL — Instruções de Migração Pendentes</h3>
+        <div style="font-size:.8rem;color:#64748b;margin-bottom:.75rem;">Cole no SQL Editor do Supabase se ainda não executou estas migrações:</div>
+        <div style="background:#0B1D33;border-radius:.5rem;padding:1rem;font-size:.72rem;color:#a5f3fc;font-family:monospace;white-space:pre-wrap;overflow-x:auto;">-- Adicionar colunas em obs_purchase_requests (compras.html)
+ALTER TABLE public.obs_purchase_requests
+  ADD COLUMN IF NOT EXISTS quantidade numeric(12,3) DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS unidade text DEFAULT 'un',
+  ADD COLUMN IF NOT EXISTS justificativa text DEFAULT '',
+  ADD COLUMN IF NOT EXISTS nf_numero text DEFAULT '',
+  ADD COLUMN IF NOT EXISTS data_compra date;
+
+-- Bucket de storage para Biblioteca (executar na aba Storage do Supabase)
+-- Criar bucket público chamado "documentos"
+
+-- Orcamentos: expandir constraint de status (se ainda não fez)
+ALTER TABLE public.obs_orcamentos
+  DROP CONSTRAINT IF EXISTS obs_orcamentos_status_check;
+ALTER TABLE public.obs_orcamentos
+  ADD CONSTRAINT obs_orcamentos_status_check
+  CHECK (status IN ('rascunho','enviado','em_analise','aprovado',
+                    'reprovado','cancelado','revisao','negociacao',
+                    'aguardando_assembleia','contratado'));</div>
+        <button class="btn btn-outline btn-sm" style="margin-top:.5rem;" onclick="copySQL()">📋 Copiar SQL</button>
+      </div>
+
+      <div class="section-block" style="border:1px solid #fecaca;">
+        <h3 style="color:#dc2626;">Zona de Risco</h3>
+        <div style="font-size:.82rem;color:#64748b;margin-bottom:.75rem;">Ações irreversíveis. Use com cuidado.</div>
+        <button class="btn btn-danger btn-sm" onclick="confirmarLogoutTodos()">🚪 Encerrar todas as sessões</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<!-- Modal Usuário -->
+<div id="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modal-title">Novo Usuário</h3>
+      <button onclick="closeModal()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#64748b;">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label>Nome Completo*</label><input id="u-nome" type="text" placeholder="João da Silva"></div>
+      <div class="field"><label>E-mail*</label><input id="u-email" type="email" placeholder="joao@obrasul.com.br"></div>
+      <div class="field"><label>Senha Inicial*</label><input id="u-pw" type="password" placeholder="Mínimo 6 caracteres"></div>
+      <div class="field-row">
+        <div class="field"><label>Cargo</label><input id="u-cargo" type="text" placeholder="Engenheiro, Assistente…"></div>
+        <div class="field"><label>Perfil</label>
+          <select id="u-role">
+            <option value="admin">Admin</option>
+            <option value="gerente">Gerente</option>
+            <option value="tecnico">Técnico</option>
+            <option value="financeiro">Financeiro</option>
+            <option value="visualizador">Visualizador</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-og" id="modal-save-btn" onclick="saveUser()">Criar Usuário</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-area"></div>
+
+<script>
+const SB_URL='https://jmjbdundgbbefvhvyffb.supabase.co';
+const SB_KEY='sb_publishable_CeLpQY1DjpWfv8U2lSMmew_Uqq6OchZ';
+const sb=supabase.createClient(SB_URL,SB_KEY);
+let _userId=null, _perfil=null, _users=[];
+
+const MODULES=['index','clientes','orcamentos','obras','financeiro','contratos','compras','estoque','equipe','qualidade','garantias','comunicados','portal-sindico','relatorios','biblioteca','configuracoes'];
+const SQL_PENDING=document.querySelector?.('pre')?.textContent||'';
+
+async function boot(){
+  const logo=await getLogoUrl();
+  document.getElementById('li-logo').src=logo;
+  document.getElementById('sb-logo').src=logo;
+  document.getElementById('logo-preview').src=logo;
+  const{data:{session}}=await sb.auth.getSession();
+  if(session) await enterApp(session.user);
+}
+async function getLogoUrl(){try{const{data}=sb.storage.from('logos').getPublicUrl('obrasul-logo.png');return data.publicUrl;}catch(e){return '';}}
+async function doLogin(){
+  const email=document.getElementById('li-email').value.trim(),pw=document.getElementById('li-pw').value;
+  document.getElementById('li-err').textContent='';
+  const{data,error}=await sb.auth.signInWithPassword({email,password:pw});
+  if(error){document.getElementById('li-err').textContent=error.message;return;}
+  await enterApp(data.user);
+}
+async function enterApp(user){
+  _userId=user.id;
+  document.getElementById('sb-user-email').textContent=user.email;
+  document.getElementById('me-email').value=user.email;
+  const{data:p}=await sb.from('obs_perfis').select('*').eq('id',user.id).single();
+  _perfil=p;
+  document.getElementById('sb-user-name').textContent=p?.nome_completo||user.email;
+  if(p){
+    document.getElementById('me-nome').value=p.nome_completo||'';
+    document.getElementById('me-cargo').value=p.cargo||'';
+    document.getElementById('me-tel').value=p.telefone||'';
+  }
+  document.getElementById('login-overlay').style.display='none';
+  document.getElementById('app').style.display='block';
+  loadEmpresa(); loadUsers(); loadStats();
+}
+async function doLogout(){await sb.auth.signOut();location.reload();}
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('collapsed');document.getElementById('main').classList.toggle('expanded');}
+function switchTab(id,el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');document.getElementById('tab-'+id).classList.add('active');
+}
+
+// ── EMPRESA ───────────────────────────────────────────────────────
+async function loadEmpresa(){
+  const{data}=await sb.from('obs_configuracoes').select('*').eq('chave','empresa').single();
+  if(data?.valor){
+    const v=data.valor;
+    document.getElementById('emp-nome').value=v.nome||'';
+    document.getElementById('emp-cnpj').value=v.cnpj||'';
+    document.getElementById('emp-tel').value=v.telefone||'';
+    document.getElementById('emp-email').value=v.email||'';
+    document.getElementById('emp-end').value=v.endereco||'';
+    document.getElementById('emp-site').value=v.site||'';
+    document.getElementById('emp-crea').value=v.crea||'';
+  }
+}
+async function saveEmpresa(){
+  const valor={
+    nome:document.getElementById('emp-nome').value.trim(),
+    cnpj:document.getElementById('emp-cnpj').value.trim(),
+    telefone:document.getElementById('emp-tel').value.trim(),
+    email:document.getElementById('emp-email').value.trim(),
+    endereco:document.getElementById('emp-end').value.trim(),
+    site:document.getElementById('emp-site').value.trim(),
+    crea:document.getElementById('emp-crea').value.trim()
+  };
+  const{error}=await sb.from('obs_configuracoes').upsert({chave:'empresa',valor},{onConflict:'chave'});
+  if(error){toast(error.message,'e');return;}
+  toast('Dados da empresa salvos','s');
+}
+
+// ── LOGO UPLOAD ───────────────────────────────────────────────────
+async function uploadLogo(event){
+  const file=event.target.files[0];
+  if(!file)return;
+  document.getElementById('logo-progress').style.display='block';
+  const{data,error}=await sb.storage.from('logos').upload('obrasul-logo.png',file,{upsert:true,contentType:file.type});
+  if(error){toast('Erro no upload: '+error.message,'e');document.getElementById('logo-progress').style.display='none';return;}
+  const{data:urlData}=sb.storage.from('logos').getPublicUrl('obrasul-logo.png');
+  const url=urlData.publicUrl+'?t='+Date.now();
+  document.getElementById('logo-preview').src=url;
+  document.getElementById('sb-logo').src=url;
+  document.getElementById('logo-progress').style.display='none';
+  toast('Logo atualizado! Recarregue os outros módulos para ver.','s');
+}
+
+// ── USUÁRIOS ──────────────────────────────────────────────────────
+async function loadUsers(){
+  const{data}=await sb.from('obs_perfis').select('*').order('nome_completo');
+  _users=data||[];
+  const tbody=document.getElementById('tbody-users');
+  if(!_users.length){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:1.5rem;">Nenhum usuário.</td></tr>';return;}
+  tbody.innerHTML=_users.map(u=>`<tr>
+    <td><div style="display:flex;align-items:center;gap:.5rem;">
+      <div class="avatar">${(u.nome_completo||u.email||'?')[0].toUpperCase()}</div>
+      <span style="font-weight:600;">${u.nome_completo||'—'}</span>
+    </div></td>
+    <td style="font-size:.78rem;">${u.email||'—'}</td>
+    <td style="font-size:.78rem;">${u.cargo||'—'}</td>
+    <td>${badgeRole(u.role)}</td>
+    <td>${u.ativo!==false?'<span class="badge green">Ativo</span>':'<span class="badge red">Inativo</span>'}</td>
+    <td><button class="btn btn-outline btn-sm" onclick="toggleUserAtivo('${u.id}',${u.ativo!==false})">${u.ativo!==false?'Desativar':'Reativar'}</button></td>
+  </tr>`).join('');
+}
+
+function openUserModal(){
+  document.getElementById('modal-title').textContent='Novo Usuário';
+  ['u-nome','u-email','u-pw','u-cargo'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('u-role').value='tecnico';
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function closeModal(){document.getElementById('modal-overlay').classList.remove('open');}
+
+async function saveUser(){
+  const nome=document.getElementById('u-nome').value.trim();
+  const email=document.getElementById('u-email').value.trim();
+  const pw=document.getElementById('u-pw').value;
+  const cargo=document.getElementById('u-cargo').value.trim();
+  const role=document.getElementById('u-role').value;
+  if(!nome||!email||!pw){toast('Nome, e-mail e senha são obrigatórios','w');return;}
+  if(pw.length<6){toast('Senha mínima de 6 caracteres','w');return;}
+  const{data,error}=await sb.auth.admin?.createUser({email,password:pw,email_confirm:true});
+  if(error||!data?.user){
+    const{data:d2,error:e2}=await sb.auth.signUp({email,password:pw});
+    if(e2){toast(e2.message,'e');return;}
+    if(d2?.user){
+      await sb.from('obs_perfis').upsert({id:d2.user.id,nome_completo:nome,email,cargo,role,ativo:true},{onConflict:'id'});
+    }
+  } else {
+    await sb.from('obs_perfis').upsert({id:data.user.id,nome_completo:nome,email,cargo,role,ativo:true},{onConflict:'id'});
+  }
+  toast('Usuário criado','s');closeModal();await loadUsers();
+}
+
+async function toggleUserAtivo(id,currentAtivo){
+  const msg=currentAtivo?'Desativar este usuário?':'Reativar este usuário?';
+  if(!confirm(msg))return;
+  const{error}=await sb.from('obs_perfis').update({ativo:!currentAtivo}).eq('id',id);
+  if(error){toast(error.message,'e');return;}
+  toast(currentAtivo?'Usuário desativado':'Usuário reativado','s');
+  await loadUsers();
+}
+
+// ── MINHA CONTA ───────────────────────────────────────────────────
+async function savePerfil(){
+  const nome=document.getElementById('me-nome').value.trim();
+  const cargo=document.getElementById('me-cargo').value.trim();
+  const tel=document.getElementById('me-tel').value.trim();
+  if(!nome){toast('Nome obrigatório','w');return;}
+  const{error}=await sb.from('obs_perfis').update({nome_completo:nome,cargo,telefone:tel}).eq('id',_userId);
+  if(error){toast(error.message,'e');return;}
+  document.getElementById('sb-user-name').textContent=nome;
+  toast('Perfil atualizado','s');
+}
+
+async function changePw(){
+  const pw=document.getElementById('pw-new').value;
+  const conf=document.getElementById('pw-conf').value;
+  if(pw.length<6){toast('Mínimo 6 caracteres','w');return;}
+  if(pw!==conf){toast('Senhas não coincidem','w');return;}
+  const{error}=await sb.auth.updateUser({password:pw});
+  if(error){toast(error.message,'e');return;}
+  document.getElementById('pw-new').value='';
+  document.getElementById('pw-conf').value='';
+  toast('Senha alterada com sucesso','s');
+}
+
+// ── SISTEMA ───────────────────────────────────────────────────────
+async function loadStats(){
+  document.getElementById('mod-count').textContent=MODULES.length+' módulos';
+  const[{count:uc},{count:oc}]=await Promise.all([
+    sb.from('obs_perfis').select('*',{count:'exact',head:true}),
+    sb.from('obs_projects').select('*',{count:'exact',head:true})
+  ]);
+  document.getElementById('user-count').textContent=uc||'—';
+  document.getElementById('obras-count').textContent=oc||'—';
+}
+
+function copySQL(){
+  const sql=document.querySelector('.section-block pre, code, .sql-block')?.textContent||
+    `ALTER TABLE public.obs_purchase_requests
+  ADD COLUMN IF NOT EXISTS quantidade numeric(12,3) DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS unidade text DEFAULT 'un',
+  ADD COLUMN IF NOT EXISTS justificativa text DEFAULT '',
+  ADD COLUMN IF NOT EXISTS nf_numero text DEFAULT '',
+  ADD COLUMN IF NOT EXISTS data_compra date;`;
+  navigator.clipboard?.writeText(sql).then(()=>toast('SQL copiado','s')).catch(()=>toast('Use Ctrl+A para selecionar manualmente','w'));
+}
+
+function confirmarLogoutTodos(){
+  if(!confirm('Encerrar TODAS as sessões ativas? Você precisará fazer login novamente.'))return;
+  sb.auth.signOut({scope:'global'}).then(()=>location.reload());
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────
+function badgeRole(r){
+  const map={admin:'red',gerente:'orange',tecnico:'blue',financeiro:'green',visualizador:'gray'};
+  const label={admin:'Admin',gerente:'Gerente',tecnico:'Técnico',financeiro:'Financeiro',visualizador:'Visualizador'};
+  return `<span class="badge ${map[r]||'gray'}">${label[r]||r||'—'}</span>`;
+}
+function toast(msg,type=''){const el=document.createElement('div');el.className='toast'+(type?' '+type:'');el.textContent=msg;document.getElementById('toast-area').appendChild(el);setTimeout(()=>el.remove(),3500);}
+
+boot();
+</script>
+</body>
+</html>
