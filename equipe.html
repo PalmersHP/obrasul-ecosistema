@@ -187,6 +187,7 @@ tr:hover td{background:#fafafa;}
     <div class="tab-bar">
       <div class="tab active" onclick="switchTab('colaboradores',this)">Colaboradores</div>
       <div class="tab" onclick="switchTab('cargos',this)">Por Cargo</div>
+      <div class="tab" onclick="switchTab('presencas',this)">Presenças</div>
       <div class="tab" onclick="switchTab('inativos',this)">Inativos</div>
     </div>
 
@@ -219,6 +220,25 @@ tr:hover td{background:#fafafa;}
     <!-- Por Cargo -->
     <div id="tab-cargos" class="tab-panel">
       <div id="cargos-list" class="card" style="padding:1rem;"></div>
+    </div>
+
+    <!-- Presenças -->
+    <div id="tab-presencas" class="tab-panel">
+      <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1.25rem;flex-wrap:wrap;">
+        <div>
+          <label style="font-size:.75rem;font-weight:600;color:#64748b;display:block;margin-bottom:.2rem;">Data</label>
+          <input type="date" id="pres-data" value="" style="padding:.45rem .75rem;border:1px solid #e2e8f0;border-radius:.4rem;font-size:.82rem;outline:none;">
+        </div>
+        <button class="btn btn-outline btn-sm" style="margin-top:1.2rem;" onclick="loadPresencas()">↻ Carregar</button>
+        <button class="btn btn-og btn-sm" style="margin-top:1.2rem;" onclick="salvarPresencas()">💾 Salvar presenças</button>
+        <div id="pres-resumo" style="margin-top:1.2rem;font-size:.78rem;color:#64748b;"></div>
+      </div>
+      <div class="card" style="overflow:auto;">
+        <table>
+          <thead><tr><th>Colaborador</th><th>Função</th><th>Vínculo</th><th style="min-width:150px;">Status</th><th>Observação</th></tr></thead>
+          <tbody id="tbody-presencas"></tbody>
+        </table>
+      </div>
     </div>
 
     <!-- Inativos -->
@@ -360,6 +380,7 @@ function switchTab(id,el){
   document.getElementById('tab-'+id).classList.add('active');
   if(id==='cargos') renderCargos();
   if(id==='inativos') renderInativos();
+  if(id==='presencas') initPresencas();
 }
 
 // ── DATA ───────────────────────────────────────────────────────────
@@ -539,6 +560,76 @@ async function toggleAtivo(id,ativo){
   if(error){toast(error.message,'e');return;}
   toast(ativo?'Colaborador reativado':'Colaborador desativado','s');
   await loadData();
+}
+
+// ── PRESENÇAS ──────────────────────────────────────────────────────
+let _presencasData={};
+function initPresencas(){
+  const inp=document.getElementById('pres-data');
+  if(!inp.value) inp.value=new Date().toISOString().split('T')[0];
+  loadPresencas();
+}
+async function loadPresencas(){
+  const data=document.getElementById('pres-data').value;
+  if(!data){toast('Selecione uma data','w');return;}
+  const ativos=_employees.filter(e=>e.ativo&&!e.project_id);
+  // Load existing presences for the date
+  const{data:rows}=await sb.from('obs_presencas').select('*').eq('data',data).in('employee_id',ativos.map(e=>e.id));
+  _presencasData={};
+  (rows||[]).forEach(r=>{_presencasData[r.employee_id]={status:r.status,obs:r.observacao||'',id:r.id};});
+  renderPresencas(ativos,data);
+}
+function renderPresencas(ativos,data){
+  const tbody=document.getElementById('tbody-presencas');
+  if(!ativos||!ativos.length){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:1rem;">Nenhum colaborador ativo.</td></tr>';return;}
+  tbody.innerHTML=ativos.map(e=>{
+    const p=_presencasData[e.id]||{status:'presente',obs:''};
+    const opts=['presente','falta','atraso','folga','afastamento'];
+    const colors={presente:'#16a34a',falta:'#dc2626',atraso:'#d97706',folga:'#2563eb',afastamento:'#7c3aed'};
+    return `<tr>
+      <td style="font-weight:600;">${e.nome}</td>
+      <td style="font-size:.78rem;color:#64748b;">${e.funcao||'—'}</td>
+      <td>${badgeVinculo(e.tipo_vinculo)}</td>
+      <td>
+        <select data-empid="${e.id}" class="pres-sel" style="width:100%;padding:.3rem .5rem;border:1px solid #e2e8f0;border-radius:.35rem;font-size:.78rem;outline:none;color:${colors[p.status]||'#374151'};font-weight:600;"
+          onchange="this.style.color='${colors[p.status]||'#374151'}';const c={presente:'#16a34a',falta:'#dc2626',atraso:'#d97706',folga:'#2563eb',afastamento:'#7c3aed'};this.style.color=c[this.value]||'#374151'">
+          ${opts.map(o=>`<option value="${o}" ${p.status===o?'selected':''}>${o.charAt(0).toUpperCase()+o.slice(1)}</option>`).join('')}
+        </select>
+      </td>
+      <td><input data-empid="${e.id}" class="pres-obs" value="${p.obs}" placeholder="Obs…" style="width:100%;padding:.3rem .5rem;border:1px solid #e2e8f0;border-radius:.35rem;font-size:.78rem;outline:none;"></td>
+    </tr>`;
+  }).join('');
+  // Update summary
+  updatePresSummary(ativos);
+}
+function updatePresSummary(ativos){
+  const tots={presente:0,falta:0,atraso:0,folga:0,afastamento:0};
+  document.querySelectorAll('.pres-sel').forEach(s=>{tots[s.value]=(tots[s.value]||0)+1;});
+  document.getElementById('pres-resumo').innerHTML=
+    `<strong>${tots.presente}</strong> presentes &nbsp;|&nbsp; <strong style="color:#dc2626;">${tots.falta}</strong> faltas &nbsp;|&nbsp; <strong style="color:#d97706;">${tots.atraso}</strong> atrasos &nbsp;|&nbsp; ${tots.folga} folgas`;
+}
+async function salvarPresencas(){
+  const data=document.getElementById('pres-data').value;
+  if(!data){toast('Selecione uma data','w');return;}
+  const sels=document.querySelectorAll('.pres-sel');
+  const obss=document.querySelectorAll('.pres-obs');
+  const upserts=[];
+  sels.forEach((sel,i)=>{
+    const empId=sel.dataset.empid;
+    const status=sel.value;
+    const obs=obss[i]?.value||'';
+    const existing=_presencasData[empId];
+    if(existing?.id){
+      upserts.push({id:existing.id,employee_id:empId,data,status,observacao:obs,created_by:null});
+    }else{
+      upserts.push({employee_id:empId,data,status,observacao:obs,created_by:null});
+    }
+  });
+  if(!upserts.length){toast('Nenhum colaborador para salvar','w');return;}
+  const{error}=await sb.from('obs_presencas').upsert(upserts,{onConflict:'employee_id,data'});
+  if(error){toast('Erro ao salvar presenças','e');return;}
+  toast(`Presenças de ${data.split('-').reverse().join('/')} salvas com sucesso!`,'s');
+  await loadPresencas();
 }
 
 // ── HELPERS ────────────────────────────────────────────────────────

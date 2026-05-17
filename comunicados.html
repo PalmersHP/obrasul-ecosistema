@@ -407,6 +407,7 @@ function renderMsgList(list,containerId,showMarkRead){
         </div>
         <div style="display:flex;gap:.3rem;">
           ${showMarkRead&&!m.lido?`<button class="btn btn-green btn-sm" onclick="marcarLido('${m.id}')">✓ Lido</button>`:''}
+          <button class="btn btn-outline btn-sm" onclick="copiarWhatsApp('${m.id}')" title="Copiar texto para WhatsApp">📱</button>
           <button class="btn btn-og btn-sm" onclick="responder('${m.project_id}','${(m.remetente_nome||m.remetente).replace(/'/g,"\\'")}')">Responder</button>
         </div>
       </div>
@@ -529,6 +530,22 @@ function toast(msg,type=''){
   el.textContent=msg;
   document.getElementById('toast-area').appendChild(el);
   setTimeout(()=>el.remove(),3500);
+}
+
+function copiarWhatsApp(id){
+  const m=_msgs.find(x=>x.id===id);
+  if(!m){toast('Mensagem não encontrada','w');return;}
+  const obraNome=m.obs_projects?.nome||'';
+  const data=new Date(m.created_at).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'});
+  const hora=new Date(m.created_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  const tipoLabel={informativo:'📋 Informativo',urgente:'🚨 URGENTE',solicitacao:'📌 Solicitação',resposta:'↩️ Resposta'}[m.tipo]||m.tipo;
+  const texto=`*${tipoLabel} — Obrasul*\n${obraNome?'🏗️ '+obraNome+'\n':''}\n${m.mensagem}\n\n_Enviado por: ${m.remetente_nome||'Obrasul'} · ${data} às ${hora}_`;
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(texto).then(()=>toast('Texto copiado para o WhatsApp! Cole no chat do síndico.','s'));
+  }else{
+    const ta=document.createElement('textarea');ta.value=texto;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();
+    toast('Texto copiado!','s');
+  }
 }
 
 boot();

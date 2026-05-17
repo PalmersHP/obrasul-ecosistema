@@ -634,6 +634,75 @@ create policy "obs_garantias_auth" on public.obs_garantias
   for all using (auth.uid() is not null)
   with check (auth.uid() is not null);
 
+-- ── 29. LOGS DE AUDITORIA ────────────────────────────────────
+create table if not exists public.obs_audit_logs (
+  id           uuid default gen_random_uuid() primary key,
+  tabela       text not null,
+  registro_id  uuid,
+  acao         text not null,
+  descricao    text,
+  usuario_id   uuid references auth.users,
+  usuario_nome text,
+  dados_antes  jsonb,
+  dados_depois jsonb,
+  created_at   timestamptz default now()
+);
+alter table public.obs_audit_logs enable row level security;
+drop policy if exists "obs_audit_auth" on public.obs_audit_logs;
+create policy "obs_audit_auth" on public.obs_audit_logs
+  for all using (auth.uid() is not null)
+  with check (auth.uid() is not null);
+
+-- ── 30. ADITIVOS CONTRATUAIS ─────────────────────────────────
+create table if not exists public.obs_aditivos (
+  id               uuid default gen_random_uuid() primary key,
+  project_id       uuid references public.obs_projects on delete cascade,
+  numero           text default '',
+  motivo           text not null default '',
+  descricao        text default '',
+  valor            numeric(15,2) default 0,
+  prazo_dias       int default 0,
+  status           text not null default 'pendente'
+                   check (status in ('pendente','aprovado_interno','aprovado_cliente','recusado')),
+  data_solicitacao date default current_date,
+  data_aprovacao   date,
+  responsavel      text default '',
+  observacoes      text default '',
+  created_at       timestamptz default now(),
+  updated_at       timestamptz default now()
+);
+alter table public.obs_aditivos enable row level security;
+drop policy if exists "obs_aditivos_auth" on public.obs_aditivos;
+create policy "obs_aditivos_auth" on public.obs_aditivos
+  for all using (auth.uid() is not null)
+  with check (auth.uid() is not null);
+
+-- ── 31. PRESENÇAS / PONTO ────────────────────────────────────
+create table if not exists public.obs_presencas (
+  id          uuid default gen_random_uuid() primary key,
+  employee_id uuid references public.obs_employees on delete cascade,
+  data        date not null,
+  status      text not null default 'presente'
+              check (status in ('presente','falta','atraso','folga','afastamento')),
+  observacao  text default '',
+  created_by  uuid references auth.users,
+  created_at  timestamptz default now(),
+  unique(employee_id, data)
+);
+alter table public.obs_presencas enable row level security;
+drop policy if exists "obs_presencas_auth" on public.obs_presencas;
+create policy "obs_presencas_auth" on public.obs_presencas
+  for all using (auth.uid() is not null)
+  with check (auth.uid() is not null);
+
+-- ── 32. COLUNA project_id em obs_employees ───────────────────
+-- Permite vincular colaboradores a obras específicas
+alter table public.obs_employees
+  add column if not exists project_id uuid references public.obs_projects on delete set null,
+  add column if not exists data_inicio        date,
+  add column if not exists data_fim_previsto  date,
+  add column if not exists horas_dia          int default 8;
+
 -- ============================================================
 -- PRONTO! Próximos passos:
 -- 1. Abra o hub (index.html) e crie o primeiro usuário (vira proprietário)

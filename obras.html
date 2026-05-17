@@ -275,6 +275,7 @@ tr:hover td{background:#fafafa;}
             <select id="oh-status-select" onchange="updateObraStatus()" style="padding:.3rem .5rem;border:1px solid #e2e8f0;border-radius:.4rem;font-size:.75rem;outline:none;"></select>
             <button class="btn btn-outline btn-sm" onclick="openPortalSindico()" title="Painel do Síndico">👁️ Portal Síndico</button>
             <button class="btn btn-og btn-sm" onclick="openEditObraModal()">✏️ Editar</button>
+            <button class="btn btn-sm" onclick="openEncerrarModal()" title="Encerrar obra" style="background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;border-radius:.4rem;padding:.3rem .7rem;font-size:.75rem;font-weight:600;cursor:pointer;">🏁 Encerrar</button>
           </div>
         </div>
         <div id="oh-prog-wrap" style="margin-bottom:.85rem;">
@@ -303,6 +304,7 @@ tr:hover td{background:#fafafa;}
           <div class="tab" onclick="switchTab(10)">Medições</div>
           <div class="tab" onclick="switchTab(11)">Comunicados</div>
           <div class="tab" onclick="switchTab(12)">Garantia</div>
+          <div class="tab" onclick="switchTab(13)">Aditivos</div>
         </div>
         <div style="padding:1.25rem 1.5rem;">
 
@@ -534,6 +536,21 @@ tr:hover td{background:#fafafa;}
             </div>
           </div>
 
+          <!-- TAB 13: ADITIVOS -->
+          <div class="tab-panel" id="tp-13">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+              <div class="section-title" style="margin-bottom:0;">Aditivos Contratuais</div>
+              <button class="btn btn-og btn-sm" onclick="openAditModal()">+ Aditivo</button>
+            </div>
+            <div id="adit-summary" style="display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;margin-bottom:1rem;"></div>
+            <div class="card" style="overflow:hidden;">
+              <table>
+                <thead><tr><th>Nº</th><th>Motivo</th><th>Valor+</th><th>Prazo+</th><th>Status</th><th>Data</th><th></th></tr></thead>
+                <tbody id="adit-body"></tbody>
+              </table>
+            </div>
+          </div>
+
         </div><!-- /tab content wrap -->
       </div><!-- /card -->
     </div><!-- /page-ficha -->
@@ -595,7 +612,7 @@ const KANBAN_COLORS={
 };
 
 let _user=null,_perfil=null,_obras=[],_currentObra=null;
-let _etapas=[],_rdos=[],_fotos=[],_docs=[],_rec=[],_desp=[],_equipe=[],_materiais=[],_pendencias=[],_checklists=[],_seg=[],_medicoes=[],_comunicados=[],_garantias=[];
+let _etapas=[],_rdos=[],_fotos=[],_docs=[],_rec=[],_desp=[],_equipe=[],_materiais=[],_pendencias=[],_checklists=[],_seg=[],_medicoes=[],_comunicados=[],_garantias=[],_aditivos=[];
 let _activeTab=0;
 let _chartCronograma=null,_chartCusto=null;
 let _currentModal=null;
@@ -795,12 +812,27 @@ function renderObraHeader(){
 
 async function updateObraStatus(){
   const ns=document.getElementById('oh-status-select').value;
+  const oldStatus=_currentObra.status;
   const{error}=await sb.from('obs_projects').update({status:ns}).eq('id',_currentObra.id);
   if(error){toast('Erro ao atualizar status','e');return;}
   _currentObra.status=ns;
+  await auditLog('obs_projects',_currentObra.id,'status_changed',
+    `Status: ${STATUS_OBRA[oldStatus]?.label||oldStatus} → ${STATUS_OBRA[ns]?.label||ns}`,
+    {status:oldStatus},{status:ns});
   renderObraHeader();
   await loadObras();
   toast('Status atualizado','s');
+}
+
+async function auditLog(tabela,id,acao,desc,antes,depois){
+  try{
+    await sb.from('obs_audit_logs').insert({
+      tabela,registro_id:id,acao,descricao:desc,
+      usuario_id:_user?.id||null,
+      usuario_nome:_perfil?.nome||_user?.email||'?',
+      dados_antes:antes||null,dados_depois:depois||null,
+    });
+  }catch(e){/* non-critical */}
 }
 
 function openPortalSindico(){
@@ -868,7 +900,7 @@ function switchTab(idx){
   _activeTab=idx;
   document.querySelectorAll('#ficha-tab-bar .tab').forEach((t,i)=>t.classList.toggle('active',i===idx));
   document.querySelectorAll('.tab-panel').forEach((p,i)=>p.classList.toggle('active',i===idx));
-  const loaders={0:loadVisaoGeral,1:loadCronograma,2:loadRdos,3:loadFotos,4:loadDocs,5:loadFinanceiro,6:loadEquipe,7:loadMateriais,8:loadPendencias,9:loadQualidade,10:loadMedicoes,11:loadComunicados,12:loadGarantia};
+  const loaders={0:loadVisaoGeral,1:loadCronograma,2:loadRdos,3:loadFotos,4:loadDocs,5:loadFinanceiro,6:loadEquipe,7:loadMateriais,8:loadPendencias,9:loadQualidade,10:loadMedicoes,11:loadComunicados,12:loadGarantia,13:loadAditivos};
   if(loaders[idx])loaders[idx]();
 }
 
@@ -1841,6 +1873,145 @@ async function saveObra(id){
   await loadObras();
   if(saved){if(id&&_currentObra?.id===id){_currentObra=saved;renderObraHeader();}else{openFicha(saved.id);}}
   toast(id?'Obra atualizada':'Obra criada','s');
+}
+
+// ── TAB 13: ADITIVOS ─────────────────────────────────────────────────────────
+async function loadAditivos(){
+  const{data}=await sb.from('obs_aditivos').select('*').eq('project_id',_currentObra.id).order('created_at',{ascending:false});
+  _aditivos=data||[];renderAditivos();
+}
+function renderAditivos(){
+  const STATUS_ADIT={pendente:{lbl:'Pendente',cls:'gray'},aprovado_interno:{lbl:'Aprov. Interno',cls:'purple'},aprovado_cliente:{lbl:'Aprovado',cls:'green'},recusado:{lbl:'Recusado',cls:'red'}};
+  const totalValor=_aditivos.reduce((s,a)=>s+(+a.valor||0),0);
+  const totalPrazo=_aditivos.reduce((s,a)=>s+(+a.prazo_dias||0),0);
+  const aprovados=_aditivos.filter(a=>a.status==='aprovado_cliente');
+  const valorAprov=aprovados.reduce((s,a)=>s+(+a.valor||0),0);
+  document.getElementById('adit-summary').innerHTML=`
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:.6rem;padding:.85rem 1rem;">
+      <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.2rem;">Total de aditivos</div>
+      <div style="font-size:1.3rem;font-weight:900;color:#0B1D33;">${_aditivos.length}</div>
+      <div style="font-size:.7rem;color:#94a3b8;">${aprovados.length} aprovados pelo cliente</div>
+    </div>
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:.6rem;padding:.85rem 1rem;">
+      <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.2rem;">Valor aditivado</div>
+      <div style="font-size:1.3rem;font-weight:900;color:#16a34a;">+ ${fmt(valorAprov)}</div>
+      <div style="font-size:.7rem;color:#94a3b8;">${fmt(totalValor)} solicitado no total</div>
+    </div>
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:.6rem;padding:.85rem 1rem;">
+      <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.2rem;">Prazo adicional</div>
+      <div style="font-size:1.3rem;font-weight:900;color:#0B1D33;">+ ${totalPrazo} dias</div>
+      <div style="font-size:.7rem;color:#94a3b8;">acumulado de todos os aditivos</div>
+    </div>`;
+  const tbody=document.getElementById('adit-body');
+  if(!_aditivos.length){tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:1.5rem;">Nenhum aditivo registrado.</td></tr>';return;}
+  tbody.innerHTML=_aditivos.map(a=>`<tr>
+    <td style="font-weight:700;">${a.numero||'—'}</td>
+    <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${a.motivo||'—'}</td>
+    <td style="font-weight:600;color:#16a34a;">+ ${fmt(a.valor)}</td>
+    <td>${a.prazo_dias>0?'+ '+a.prazo_dias+' dias':'—'}</td>
+    <td><span class="badge ${STATUS_ADIT[a.status]?.cls||'gray'}">${STATUS_ADIT[a.status]?.lbl||a.status}</span></td>
+    <td style="font-size:.73rem;">${fmtDate(a.data_solicitacao)}</td>
+    <td style="display:flex;gap:.3rem;flex-wrap:wrap;">
+      ${a.status==='pendente'?`<button class="btn btn-outline btn-sm" onclick="approveAditivo('${a.id}','aprovado_interno')">✓ Interno</button>`:''}
+      ${a.status==='aprovado_interno'?`<button class="btn btn-og btn-sm" onclick="approveAditivo('${a.id}','aprovado_cliente')">✓ Cliente</button>`:''}
+      ${['pendente','aprovado_interno'].includes(a.status)?`<button class="btn btn-danger btn-sm" onclick="approveAditivo('${a.id}','recusado')">✕</button>`:''}
+      <button class="btn btn-danger btn-sm" onclick="deleteAditivo('${a.id}')">🗑️</button>
+    </td>
+  </tr>`).join('');
+}
+function openAditModal(){
+  const n=_aditivos.length+1;
+  openModal('Novo Aditivo Contratual',`
+    <div class="field-row">
+      <div class="field"><label>Número</label><input id="ad-num" value="AD-${String(n).padStart(3,'0')}" style="width:100%;padding:.5rem .75rem;border:1px solid #cbd5e1;border-radius:.45rem;font-size:.85rem;outline:none;"></div>
+      <div class="field"><label>Data</label><input id="ad-data" type="date" value="${new Date().toISOString().split('T')[0]}" style="width:100%;padding:.5rem .75rem;border:1px solid #cbd5e1;border-radius:.45rem;font-size:.85rem;outline:none;"></div>
+    </div>
+    <div class="field"><label>Motivo *</label><input id="ad-motivo" placeholder="Ex: Área adicional de reboco, serviço extra de ancoragem…" style="width:100%;padding:.5rem .75rem;border:1px solid #cbd5e1;border-radius:.45rem;font-size:.85rem;outline:none;"></div>
+    <div class="field"><label>Descrição dos serviços adicionais</label><textarea id="ad-desc" style="width:100%;padding:.5rem .75rem;border:1px solid #cbd5e1;border-radius:.45rem;font-size:.85rem;outline:none;min-height:70px;resize:vertical;"></textarea></div>
+    <div class="field-row">
+      <div class="field"><label>Valor adicional (R$)</label><input id="ad-valor" type="number" min="0" step="0.01" value="0" style="width:100%;padding:.5rem .75rem;border:1px solid #cbd5e1;border-radius:.45rem;font-size:.85rem;outline:none;"></div>
+      <div class="field"><label>Prazo adicional (dias)</label><input id="ad-prazo" type="number" min="0" value="0" style="width:100%;padding:.5rem .75rem;border:1px solid #cbd5e1;border-radius:.45rem;font-size:.85rem;outline:none;"></div>
+    </div>
+    <div class="field"><label>Responsável pela solicitação</label><input id="ad-resp" value="${_user?.nome||''}" style="width:100%;padding:.5rem .75rem;border:1px solid #cbd5e1;border-radius:.45rem;font-size:.85rem;outline:none;"></div>
+    <div class="field"><label>Observações</label><textarea id="ad-obs" style="width:100%;padding:.5rem .75rem;border:1px solid #cbd5e1;border-radius:.45rem;font-size:.85rem;outline:none;min-height:50px;resize:vertical;"></textarea></div>
+  `,`<button class="btn btn-outline btn-sm" onclick="closeModal()">Cancelar</button>
+     <button class="btn btn-og btn-sm" onclick="saveAditivo()">Registrar aditivo</button>`);
+}
+async function saveAditivo(){
+  const motivo=document.getElementById('ad-motivo').value.trim();
+  if(!motivo){toast('Informe o motivo do aditivo','w');return;}
+  const{error}=await sb.from('obs_aditivos').insert({
+    project_id:_currentObra.id,numero:document.getElementById('ad-num').value,
+    data_solicitacao:document.getElementById('ad-data').value,motivo,
+    descricao:document.getElementById('ad-desc').value,
+    valor:parseFloat(document.getElementById('ad-valor').value)||0,
+    prazo_dias:parseInt(document.getElementById('ad-prazo').value)||0,
+    responsavel:document.getElementById('ad-resp').value,
+    observacoes:document.getElementById('ad-obs').value,status:'pendente'
+  });
+  if(error){toast('Erro ao salvar aditivo','e');return;}
+  await auditLog('obs_aditivos',_currentObra.id,'aditivo_criado',`Aditivo registrado: ${motivo}`,null,{valor:document.getElementById('ad-valor').value});
+  closeModal();await loadAditivos();toast('Aditivo registrado','s');
+}
+async function approveAditivo(id,status){
+  const{error}=await sb.from('obs_aditivos').update({status,data_aprovacao:new Date().toISOString().split('T')[0]}).eq('id',id);
+  if(error){toast('Erro','e');return;}
+  if(status==='aprovado_cliente'){
+    const adit=_aditivos.find(a=>a.id===id);
+    if(adit){
+      const novoValor=(+_currentObra.valor_contrato||+_currentObra.valor_contratado||0)+(+adit.valor||0);
+      const updates={valor_contrato:novoValor};
+      if(adit.prazo_dias>0){
+        const base=_currentObra.data_prev_fim||_currentObra.data_previsao_fim||new Date().toISOString().split('T')[0];
+        updates.data_prev_fim=addDays(base,adit.prazo_dias);
+      }
+      await sb.from('obs_projects').update(updates).eq('id',_currentObra.id);
+      await auditLog('obs_projects',_currentObra.id,'aditivo_aprovado',`Aditivo ${adit.numero} aprovado — +${fmt(adit.valor)}, +${adit.prazo_dias}d`,null,{valor_aditivo:adit.valor});
+      toast('Aditivo aprovado! Valor e prazo da obra atualizados.','s');
+    }
+  } else {
+    toast(status==='recusado'?'Aditivo recusado':'Aprovação interna registrada','s');
+  }
+  await loadAditivos();
+}
+async function deleteAditivo(id){
+  if(!confirm('Excluir este aditivo?'))return;
+  await sb.from('obs_aditivos').delete().eq('id',id);
+  await loadAditivos();toast('Aditivo excluído','s');
+}
+
+// ── ENCERRAR OBRA ────────────────────────────────────────────────────────────
+function openEncerrarModal(){
+  if(!_currentObra)return;
+  openModal('Encerrar Obra',`
+    <div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:.6rem;padding:.85rem 1rem;margin-bottom:1rem;font-size:.8rem;color:#92400e;">
+      ⚠️ Ao confirmar, o status será alterado para <strong>Encerrada</strong> e um Termo de Entrega será registrado na Biblioteca.
+    </div>
+    <div class="field"><label>Data de encerramento</label><input id="enc-data" type="date" value="${new Date().toISOString().split('T')[0]}" style="width:100%;padding:.5rem .75rem;border:1px solid #cbd5e1;border-radius:.45rem;font-size:.85rem;outline:none;"></div>
+    <div class="field"><label>Observações finais / Pendências registradas</label><textarea id="enc-obs" placeholder="Ex: Obra entregue conforme contrato. Pendências: retoque na janela do 5º andar…" style="width:100%;padding:.5rem .75rem;border:1px solid #cbd5e1;border-radius:.45rem;font-size:.85rem;outline:none;min-height:80px;resize:vertical;"></textarea></div>
+    <div class="field"><label>Responsável técnico pela entrega</label><input id="enc-resp" value="${_perfil?.nome||_user?.nome||''}" style="width:100%;padding:.5rem .75rem;border:1px solid #cbd5e1;border-radius:.45rem;font-size:.85rem;outline:none;"></div>
+  `,`<button class="btn btn-outline btn-sm" onclick="closeModal()">Cancelar</button>
+     <button class="btn btn-sm" onclick="confirmarEncerramento()" style="background:#dc2626;color:#fff;border:none;padding:.4rem .9rem;border-radius:.4rem;font-size:.8rem;font-weight:600;cursor:pointer;">🏁 Confirmar encerramento</button>`);
+}
+async function confirmarEncerramento(){
+  const dataEnc=document.getElementById('enc-data').value;
+  const obs=document.getElementById('enc-obs').value;
+  const resp=document.getElementById('enc-resp').value;
+  if(!dataEnc){toast('Informe a data','w');return;}
+  const oldStatus=_currentObra.status;
+  const novoData={..._currentObra.data,data_encerramento:dataEnc,obs_encerramento:obs,responsavel_encerramento:resp};
+  await sb.from('obs_projects').update({status:'encerrada',data:novoData}).eq('id',_currentObra.id);
+  await sb.from('obs_documents').insert({
+    project_id:_currentObra.id,nome:`Termo de Entrega — ${_currentObra.nome}`,
+    tipo:'as_built',url:'',visivel_sindico:true,autor_id:_user?.id
+  });
+  await auditLog('obs_projects',_currentObra.id,'encerramento',
+    `Obra encerrada por ${resp}${obs?' | '+obs.substring(0,100):''}`,{status:oldStatus},{status:'encerrada'});
+  closeModal();
+  _currentObra.status='encerrada';
+  renderObraHeader();
+  await loadObras();
+  toast('Obra encerrada! Termo de entrega registrado na Biblioteca.','s');
 }
 </script>
 </body>

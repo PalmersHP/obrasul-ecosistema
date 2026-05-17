@@ -455,6 +455,13 @@ input[type=range]{width:100%;height:6px;background:#e2e8f0;border-radius:9999px;
         <div class="tab" data-tab="t7" onclick="switchTab('t7')">7. Resumo</div>
       </div>
 
+      <!-- Banner de bloqueio de edição -->
+      <div id="lock-banner" style="display:none;background:#fef3c7;border:1px solid #fbbf24;border-radius:.6rem;padding:.65rem 1rem;margin:.75rem 0;display:none;align-items:center;gap:.75rem;">
+        <span style="font-size:.95rem;">🔒</span>
+        <div style="flex:1;font-size:.8rem;color:#92400e;font-weight:600;">Orçamento bloqueado para edição — status: <span id="lock-status-lbl">—</span>. Para editar, duplique como nova versão.</div>
+        <button class="btn btn-outline btn-sm" onclick="duplicarVersao()" style="background:#fff;white-space:nowrap;">📋 Duplicar versão</button>
+      </div>
+
       <!-- TAB 1: DADOS GERAIS -->
       <div class="tab-panel active" id="t1">
         <div class="section">
@@ -1034,6 +1041,57 @@ function loadEditorForm(){
   document.getElementById('doc-obs').value   = d.doc?.obs || '';
 
   recalcComp();
+  applyLock();
+}
+
+function applyLock(){
+  const LOCKED=['aprovado_interno','enviado','em_negociacao','aprovado_cliente','convertido'];
+  const locked=LOCKED.includes(_current?.status);
+  const banner=document.getElementById('lock-banner');
+  if(banner){
+    banner.style.display=locked?'flex':'none';
+    if(locked){
+      const lbl=document.getElementById('lock-status-lbl');
+      if(lbl)lbl.textContent=STATUS_META[_current.status]?.lbl||_current.status;
+    }
+  }
+  document.querySelectorAll('#t1 input:not([type=hidden]),#t1 select,#t1 textarea,#t2 input,#t2 select,#t2 textarea,#t3 input,#t3 select,#t3 textarea,#t4 input,#t4 select,#t4 textarea').forEach(el=>{
+    el.disabled=locked;
+    el.style.opacity=locked?'.6':'1';
+  });
+  const saveBtn=document.querySelector('.ed-header button[onclick="saveOrcamento()"]');
+  if(saveBtn){saveBtn.disabled=locked;saveBtn.style.opacity=locked?'.4':'1';}
+}
+
+async function auditLog(tabela,id,acao,desc,antes,depois){
+  try{
+    await sb.from('obs_audit_logs').insert({
+      tabela,registro_id:id,acao,descricao:desc,
+      usuario_id:_user?.id||null,
+      usuario_nome:_profile?.nome||_user?.email||'?',
+      dados_antes:antes?JSON.parse(JSON.stringify(antes)):null,
+      dados_depois:depois?JSON.parse(JSON.stringify(depois)):null,
+    });
+  }catch(e){/* audit failures are non-critical */}
+}
+
+async function duplicarVersao(){
+  if(!_current)return;
+  const o=_current;
+  const versao=(o.data?.versao||1)+1;
+  const novoNome=o.nome.replace(/ v\d+$/,'')+' v'+versao;
+  const payload={
+    nome:novoNome,client_id:o.client_id,tipo_servico:o.tipo_servico,
+    responsavel_id:o.responsavel_id,status:'rascunho',
+    data:{...o.data,versao,numero:''},valor_total:o.valor_total,
+    andares:o.andares,created_by:_user?.id
+  };
+  const{data,error}=await sb.from('obs_orcamentos').insert(payload).select().single();
+  if(error){toast('Erro ao duplicar','e');return;}
+  await auditLog('obs_orcamentos',data.id,'duplicado',`Duplicado de ${o.id} (v${versao-1}) — nova versão v${versao}`,null,{versao,origem:o.id});
+  toast('Versão '+versao+' criada como rascunho','s');
+  await loadOrcamentos();
+  openEditor(data);
 }
 
 // ── ESCOPO ────────────────────────────────────────────
@@ -1325,6 +1383,7 @@ function renderStatusActions(){
 async function changeStatus(newStatus){
   if(!_current.id){ toast('Salve o orçamento antes de mudar o status','w'); return; }
   if(newStatus==='__convert'){ openConvertModal(); return; }
+  const oldStatus=_current.status;
   if(newStatus==='enviado' && !_current.data_envio){ _current.data_envio = todayStr(); }
   if(newStatus==='enviado'){
     const v = Number(document.getElementById('dg-validade').value)||30;
@@ -1332,6 +1391,9 @@ async function changeStatus(newStatus){
   }
   _current.status = newStatus;
   await saveOrcamento(true);
+  await auditLog('obs_orcamentos',_current.id,'status_changed',
+    `Status: ${STATUS_META[oldStatus]?.lbl||oldStatus} → ${STATUS_META[newStatus]?.lbl||newStatus}`,
+    {status:oldStatus},{status:newStatus});
   toast('Status atualizado: '+(STATUS_META[newStatus]?.lbl||newStatus),'s');
   loadEditorForm();
 }
@@ -1480,11 +1542,30 @@ async function doConvert(){
     const rr = await sb.from('obs_receivables').insert(recs);
     if(rr.error) toast('Obra criada, mas falha em parcelas: '+rr.error.message,'w');
   }
+  // Token do Portal do Síndico
+  const tokenVal = (typeof crypto!=='undefined'&&crypto.randomUUID) ? crypto.randomUUID() : Math.random().toString(36).slice(2)+Date.now().toString(36);
+  await sb.from('obs_portal_tokens').insert({project_id:projId,token:tokenVal,tipo:'sindico',ativo:true,criado_por:_user?.id});
+
+  // Checklist inicial de mobilização
+  await sb.from('obs_checklists').insert({
+    project_id:projId,tipo:'qualidade',data:inicio,assinado:false,
+    itens:JSON.stringify([
+      {desc:'Documentação técnica recebida',ok:false},{desc:'ART assinada',ok:false},
+      {desc:'Contrato assinado pelo condomínio',ok:false},{desc:'Entrada/pagamento recebido',ok:false},
+      {desc:'Equipe de obra definida',ok:false},{desc:'Materiais listados e cotados',ok:false},
+      {desc:'Cronograma aprovado',ok:false},{desc:'EPI da equipe providenciados',ok:false},
+      {desc:'Isolamento e sinalização planejados',ok:false},{desc:'Reunião de kick-off realizada',ok:false},
+    ])
+  });
+
+  // Log de auditoria
+  await auditLog('obs_projects',projId,'criado',`Obra criada a partir do orçamento ${o.nome}`,null,{origem_orcamento:o.id});
+
   // atualiza orçamento
   _current.status = 'convertido';
   await saveOrcamento(true);
   closeModal();
-  toast('Obra criada com sucesso!','s');
+  toast('Obra criada! Token do síndico e checklist inicial gerados.','s');
   // redirect
   setTimeout(()=>{ location.href = 'obras.html?id='+projId; }, 800);
 }
