@@ -18,11 +18,12 @@ body{font-family:"Segoe UI",system-ui,sans-serif;background:#f1f5f9;color:#1e293
 .btn-primary:hover{background:#d06918;}
 .sidebar{position:fixed;top:0;left:0;bottom:0;width:var(--sidebar);background:#0B1D33;display:flex;flex-direction:column;z-index:100;overflow-y:auto;transition:.25s;}
 .sidebar.collapsed{width:60px;}
-.sidebar-logo{padding:.75rem .9rem;border-bottom:1px solid #1a3a5c;display:flex;align-items:center;flex-shrink:0;min-height:60px;}
-.sidebar-logo-img-wrap{background:#fff;border-radius:.5rem;padding:.35rem .6rem;display:flex;align-items:center;justify-content:center;overflow:hidden;width:100%;}
-.sidebar-logo-img-wrap img{height:2rem;object-fit:contain;width:100%;max-width:140px;}
-.sidebar.collapsed .sidebar-logo-img-wrap{padding:.35rem;width:auto;}
-.sidebar.collapsed .sidebar-logo-img-wrap img{max-width:2rem;}
+.sidebar-logo{padding:1.1rem .9rem 1rem;border-bottom:1px solid #1a3a5c;display:flex;align-items:center;gap:.65rem;flex-shrink:0;min-height:60px;}
+.sidebar-logo img{height:2rem;object-fit:contain;flex-shrink:0;}
+.sidebar-logo-text{overflow:hidden;white-space:nowrap;}
+.sidebar-logo-text .brand{font-size:.9rem;font-weight:900;color:#fff;letter-spacing:.01em;}
+.sidebar-logo-text .sub{font-size:.62rem;color:#64748b;margin-top:.05rem;}
+.sidebar.collapsed .sidebar-logo-text{display:none;}
 .sidebar.collapsed .nav-label,.sidebar.collapsed .nav-item span.lbl,.sidebar.collapsed .sidebar-footer-text{display:none;}
 .sidebar.collapsed .nav-item{justify-content:center;padding:.55rem 0;}
 .nav-section{padding:.5rem 0;flex-shrink:0;}
@@ -357,27 +358,6 @@ const SB_URL='https://jmjbdundgbbefvhvyffb.supabase.co';
 const SB_KEY='sb_publishable_CeLpQY1DjpWfv8U2lSMmew_Uqq6OchZ';
 const sb=supabase.createClient(SB_URL,SB_KEY);
 
-// ── Multi-unidade bootstrap ───────────────────────────
-const _unitSlug = new URLSearchParams(location.search).get('unit') || '';
-function _injectUnitLinks() {
-  if (!_unitSlug) return;
-  document.querySelectorAll('a[href]').forEach(a => {
-    const href = a.getAttribute('href');
-    if (!href || href.startsWith('http') || href.startsWith('#') || href.startsWith('javascript') || href.startsWith('portal') || href.startsWith('mailto')) return;
-    if (href.includes('?unit=')) return;
-    const sep = href.includes('?') ? '&' : '?';
-    a.setAttribute('href', href + sep + 'unit=' + _unitSlug);
-  });
-}
-function _unitCheck(perfil) {
-  // Superadmin não deve acessar páginas de unidade diretamente
-  if (perfil?.role === 'superadmin') { location.href = 'index.html?unit=admin'; return false; }
-  // Sem slug na URL → redireciona para index com slug vazio (vai tratar lá)
-  if (!_unitSlug) { location.href = 'index.html'; return false; }
-  return true;
-}
-
-
 let _items=[];
 let _movs=[];
 let _obras=[];
@@ -386,15 +366,17 @@ let _editId=null;
 // ── AUTH ──────────────────────────────────────────────────────────
 async function boot(){
   const logo=await getLogoUrl();
+  document.getElementById('li-logo').src=logo;
+  const _sl=document.getElementById('sb-logo'),_slt=document.querySelector('.sidebar-logo-text');
+  _sl.onload=()=>{_sl.style.display='';if(_slt)_slt.style.display='none';};
+  _sl.onerror=()=>{_sl.style.display='none';if(_slt)_slt.style.display='';};
+  document.getElementById('sb-logo').src=logo;
   document.getElementById('modal-mov').style.display='none';
   const{data:{session}}=await sb.auth.getSession();
   if(session) await enterApp(session.user);
-  else location.href='index.html'+(_unitSlug?'?unit='+_unitSlug:'');
 }
 
-async function getLogoUrl(){
-  try{const{data}=sb.storage.from('logos').getPublicUrl('obrasul-logo.png');return data.publicUrl;}catch(e){return '';}
-}
+async function getLogoUrl(){return 'logo-obrasul.png';}
 
 async function doLogin(){
   const email=document.getElementById('li-email').value.trim();
@@ -407,16 +389,14 @@ async function doLogin(){
 
 async function enterApp(user){
   document.getElementById('sb-user-email').textContent=user.email;
-  const{data:p}=await sb.from('obs_perfis').select('nome,role').eq('id',user.id).single();
-  document.getElementById('sb-user-name').textContent=p?.nome||user.email;
+  const{data:p}=await sb.from('obs_perfis').select('nome_completo').eq('id',user.id).single();
+  document.getElementById('sb-user-name').textContent=p?.nome_completo||user.email;
   document.getElementById('login-overlay').style.display='none';
-  if(!_unitCheck(p)){return;}
-  _injectUnitLinks();
   document.getElementById('app').style.display='block';
   await loadData();
 }
 
-async function doLogout(){await sb.auth.signOut();location.href='index.html'+(_unitSlug?'?unit='+_unitSlug:'');}
+async function doLogout(){await sb.auth.signOut();location.reload();}
 
 function toggleSidebar(){
   document.getElementById('sidebar').classList.toggle('collapsed');

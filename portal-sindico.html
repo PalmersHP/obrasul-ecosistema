@@ -83,6 +83,25 @@ body{font-family:"Segoe UI",system-ui,sans-serif;background:#f1f5f9;color:#1e293
   body{background:#fff;}
   .card{box-shadow:none;border:1px solid #e2e8f0;margin-bottom:.75rem;}
 }
+/* Manager screen */
+#manager-screen{display:none;min-height:100vh;background:#f1f5f9;}
+.mgr-header{background:#0B1D33;padding:.9rem 1.5rem;display:flex;align-items:center;gap:1rem;}
+.mgr-header img{height:40px;object-fit:contain;}
+.mgr-header-title{color:#fff;font-size:.95rem;font-weight:700;flex:1;}
+.mgr-back{color:#94a3b8;font-size:.8rem;text-decoration:none;border:1px solid #1e3a5f;padding:.35rem .75rem;border-radius:.4rem;transition:.15s;}
+.mgr-back:hover{color:#fff;border-color:#fff;}
+.mgr-container{max-width:960px;margin:0 auto;padding:1.5rem;}
+.mgr-card{background:#fff;border-radius:.75rem;box-shadow:0 1px 4px #0001;padding:1.25rem;}
+.mgr-card-title{font-size:.72rem;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.07em;margin-bottom:1rem;}
+.mgr-token-row{display:grid;grid-template-columns:1fr auto auto auto auto;gap:.75rem;align-items:center;padding:.65rem 0;border-bottom:1px solid #f1f5f9;font-size:.82rem;}
+.mgr-token-row:last-child{border-bottom:none;}
+.mgr-token-proj{font-weight:600;color:#0B1D33;}
+.mgr-token-meta{font-size:.72rem;color:#94a3b8;}
+.mgr-copy-btn{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;padding:.3rem .65rem;border-radius:.4rem;font-size:.75rem;font-weight:600;cursor:pointer;transition:.15s;white-space:nowrap;}
+.mgr-copy-btn:hover{background:#1d4ed8;color:#fff;}
+.mgr-revoke-btn{background:#fef2f2;color:#dc2626;border:1px solid #fecaca;padding:.3rem .65rem;border-radius:.4rem;font-size:.75rem;font-weight:600;cursor:pointer;transition:.15s;}
+.mgr-revoke-btn:hover{background:#dc2626;color:#fff;}
+.mgr-empty{text-align:center;padding:2.5rem;color:#94a3b8;font-size:.85rem;}
 </style>
 </head>
 <body>
@@ -98,6 +117,21 @@ body{font-family:"Segoe UI",system-ui,sans-serif;background:#f1f5f9;color:#1e293
     <h2 style="color:#0B1D33;margin-bottom:.5rem;" id="err-title">Acesso não encontrado</h2>
     <p style="color:#64748b;font-size:.85rem;margin-bottom:1.5rem;" id="err-msg">Este link é inválido ou expirou. Entre em contato com a Obrasul.</p>
     <a href="https://wa.me/5511999999999" class="btn btn-og" style="text-decoration:none;display:inline-block;">📞 Contatar Obrasul</a>
+  </div>
+</div>
+
+<!-- Manager Screen: shown to authenticated Obrasul users (no token) -->
+<div id="manager-screen">
+  <div class="mgr-header">
+    <img id="mgr-logo" src="" alt="Obrasul">
+    <div class="mgr-header-title">🔑 Portais do Síndico</div>
+    <a href="index.html" class="mgr-back">← Voltar ao sistema</a>
+  </div>
+  <div class="mgr-container">
+    <div class="mgr-card">
+      <div class="mgr-card-title">Links de acesso ativos</div>
+      <div id="mgr-list"><div class="mgr-empty">Carregando...</div></div>
+    </div>
   </div>
 </div>
 
@@ -207,7 +241,7 @@ body{font-family:"Segoe UI",system-ui,sans-serif;background:#f1f5f9;color:#1e293
 const SB_URL='https://jmjbdundgbbefvhvyffb.supabase.co';
 const SB_KEY='sb_publishable_CeLpQY1DjpWfv8U2lSMmew_Uqq6OchZ';
 const sb=supabase.createClient(SB_URL,SB_KEY);
-const LOGO='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYwIiBoZWlnaHQ9IjUwIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxyZWN0IHdpZHRoPSIxNjAiIGhlaWdodD0iNTAiIGZpbGw9IiMwQjFEMzMiIHJ4PSI2Ii8+PHRleHQgeD0iODAiIHk9IjMzIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjAiIGZvbnQtd2VpZ2h0PSJib2xkIiBmaWxsPSIjRTg3NzIyIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5PQlJBU1VMPC90ZXh0Pjwvc3ZnPg==';
+async function getLogoUrl(){return 'logo-obrasul.png';}
 
 const STATUS_OBRA={
   aguardando_inicio:{label:'Aguardando início',cls:'gray'},
@@ -255,7 +289,7 @@ function showError(title,msg){
 
 // ── BOOT ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded',async()=>{
-  document.getElementById('portal-logo').src=LOGO;
+  document.getElementById('portal-logo').src=await getLogoUrl();
   const params=new URLSearchParams(location.search);
   const token=params.get('token');
   const idDirect=params.get('id'); // internal preview (requires auth session)
@@ -265,7 +299,13 @@ document.addEventListener('DOMContentLoaded',async()=>{
   } else if(idDirect){
     await bootBySession(idDirect);
   } else {
-    showError('Link inválido','Nenhum código de acesso encontrado na URL.');
+    // Check if authenticated Obrasul user
+    const{data:{session}}=await sb.auth.getSession();
+    if(session){
+      await showPortalManager();
+    } else {
+      showError('Link inválido','Nenhum código de acesso encontrado na URL.');
+    }
   }
 });
 
@@ -290,6 +330,58 @@ async function bootBySession(id){
   await loadPortal();
 }
 
+// ── PORTAL MANAGER (authenticated users, no token) ──────────────────────────
+async function showPortalManager(){
+  document.getElementById('loading-screen').style.display='none';
+  const mgr=document.getElementById('manager-screen');
+  mgr.style.display='block';
+  document.getElementById('mgr-logo').src='logo-obrasul.png';
+  // Load tokens with project info
+  const{data:tokens,error}=await sb.from('obs_portal_tokens')
+    .select('*,obs_projects(nome,status)')
+    .order('created_at',{ascending:false});
+  const list=document.getElementById('mgr-list');
+  if(error||!tokens||!tokens.length){
+    list.innerHTML='<div class="mgr-empty">Nenhum portal criado ainda.<br><span style="font-size:.78rem;">Os portais são gerados automaticamente ao converter um orçamento em obra.</span></div>';
+    return;
+  }
+  const statusMap={ativo:'<span class="badge green">Ativo</span>',inativo:'<span class="badge gray">Inativo</span>'};
+  const fmtDt=d=>d?new Date(d).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'—';
+  list.innerHTML=tokens.map(tk=>{
+    const proj=tk.obs_projects;
+    const nome=proj?.nome||'Projeto removido';
+    const expirou=tk.expira_em&&new Date(tk.expira_em)<new Date();
+    const statusBadge=!tk.ativo?'<span class="badge gray">Inativo</span>':expirou?'<span class="badge red">Expirado</span>':'<span class="badge green">Ativo</span>';
+    const link=`${location.origin}${location.pathname}?token=${tk.token}`;
+    return `<div class="mgr-token-row">
+      <div>
+        <div class="mgr-token-proj">${nome}</div>
+        <div class="mgr-token-meta">Criado ${fmtDt(tk.created_at)} · Último acesso ${fmtDt(tk.ultimo_acesso)} · Expira ${fmtDt(tk.expira_em)}</div>
+      </div>
+      <div>${statusBadge}</div>
+      <button class="mgr-copy-btn" onclick="copyPortalLink('${link}','${nome}')">📋 Copiar link</button>
+      <a href="${link}" target="_blank" class="mgr-copy-btn" style="text-decoration:none;">👁️ Visualizar</a>
+      ${tk.ativo&&!expirou?`<button class="mgr-revoke-btn" onclick="revokeToken('${tk.id}')">Revogar</button>`:'<span></span>'}
+    </div>`;
+  }).join('');
+}
+
+function copyPortalLink(link,nome){
+  navigator.clipboard.writeText(link).then(()=>{
+    toast(`Link do portal "${nome}" copiado!`,'s');
+  }).catch(()=>{
+    prompt('Copie o link:',link);
+  });
+}
+
+async function revokeToken(id){
+  if(!confirm('Revogar este link de acesso? O síndico não conseguirá mais acessar o portal com este link.'))return;
+  const{error}=await sb.from('obs_portal_tokens').update({ativo:false}).eq('id',id);
+  if(error){toast('Erro ao revogar','e');return;}
+  toast('Link revogado com sucesso','s');
+  await showPortalManager();
+}
+
 // ── LOAD PORTAL DATA ──────────────────────────────────────────────────────────
 async function loadPortal(){
   const[
@@ -302,7 +394,7 @@ async function loadPortal(){
   ]=await Promise.all([
     sb.from('obs_projects').select('*,client:obs_clients(nome,endereco)').eq('id',_projectId).single(),
     sb.from('obs_project_stages').select('*').eq('project_id',_projectId).order('ordem'),
-    sb.from('obs_diary').select('*').eq('project_id',_projectId).order('data',{ascending:false}).limit(10),
+    sb.from('obs_diary').select('*').eq('project_id',_projectId).eq('finalizado',true).order('data',{ascending:false}).limit(10),
     sb.from('obs_photos').select('*').eq('project_id',_projectId).order('created_at',{ascending:false}).limit(24),
     sb.from('obs_documents').select('*').eq('project_id',_projectId).eq('visivel_sindico',true).order('created_at',{ascending:false}),
     sb.from('obs_comunicados').select('*').eq('project_id',_projectId).order('created_at',{ascending:false})
@@ -343,7 +435,7 @@ function renderProject(p){
     <div class="info-item"><div class="lbl">Condomínio</div><div class="val">${p.client?.nome||'—'}</div></div>
     <div class="info-item"><div class="lbl">Tipo de serviço</div><div class="val">${p.tipo_servico||'—'}</div></div>
     <div class="info-item"><div class="lbl">Data de início</div><div class="val">${fmtDate(p.data_inicio)}</div></div>
-    <div class="info-item"><div class="lbl">Previsão de conclusão</div><div class="val">${fmtDate(p.data_previsao_fim)}</div></div>
+    <div class="info-item"><div class="lbl">Previsão de conclusão</div><div class="val">${fmtDate(p.data_prev_fim)}</div></div>
     <div class="info-item"><div class="lbl">Responsável técnico</div><div class="val">${p.responsavel||'—'}</div></div>
     <div class="info-item"><div class="lbl">Endereço</div><div class="val" style="font-size:.82rem;">${p.client?.endereco||p.data?.endereco||'—'}</div></div>
   `;

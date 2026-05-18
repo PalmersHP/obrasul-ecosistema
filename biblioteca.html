@@ -284,7 +284,7 @@ async function boot(){
   if(session) await enterApp(session.user);
   else location.href='index.html'+(_unitSlug?'?unit='+_unitSlug:'');
 }
-async function getLogoUrl(){try{const{data}=sb.storage.from('logos').getPublicUrl('obrasul-logo.png');return data.publicUrl;}catch(e){return '';}}
+async function getLogoUrl(){return 'logo-obrasul.png';}
 async function doLogin(){
   const email=document.getElementById('li-email').value.trim(),pw=document.getElementById('li-pw').value;
   document.getElementById('li-err').textContent='';
