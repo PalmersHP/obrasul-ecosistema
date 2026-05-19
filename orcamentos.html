@@ -864,10 +864,7 @@ async function checkAuth(){
   document.getElementById('top-avatar').textContent = (profile.nome||'U').slice(0,2).toUpperCase();
   await loadAll();
 }
-function showLogin(){
-  document.getElementById('login-overlay').style.display = 'flex';
-  document.getElementById('app').style.display = 'none';
-}
+function showLogin(){location.href='index.html';}
 async function doLogin(){
   const email = document.getElementById('li-email').value.trim();
   const pass  = document.getElementById('li-pass').value;

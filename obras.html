@@ -643,7 +643,7 @@ document.addEventListener('DOMContentLoaded',async()=>{
   sb.auth.onAuthStateChange(async(_ev,sess)=>{if(sess)await _afterLogin(sess.user);});
 });
 
-function showLogin(){document.getElementById('login-overlay').style.display='flex';}
+function showLogin(){location.href='index.html';}
 
 async function _afterLogin(user){
   if(_initialized)return;

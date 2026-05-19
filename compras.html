@@ -303,7 +303,7 @@ document.addEventListener('DOMContentLoaded',async()=>{
   else showLogin();
   sb.auth.onAuthStateChange(async(_ev,sess)=>{if(sess)await _afterLogin(sess.user);});
 });
-function showLogin(){document.getElementById('login-overlay').style.display='flex';}
+function showLogin(){location.href='index.html';}
 async function _afterLogin(user){
   _user=user;
   const{data}=await sb.from('obs_perfis').select('*').eq('id',user.id).single();
