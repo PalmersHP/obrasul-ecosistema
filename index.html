@@ -1144,8 +1144,18 @@ async function resendConfirmation(email, nome) {
     body: JSON.stringify({ email })
   });
   const rj = await r.json();
-  if (rj.erro) { toast('Erro: '+rj.erro,'e'); return; }
-  toast(`Confirmação reenviada para ${nome}.`,'s');
+  if (rj.erro) {
+    let msg = rj.erro;
+    try {
+      const parsed = typeof rj.erro === 'string' ? JSON.parse(rj.erro) : rj.erro;
+      if (parsed?.error_code === 'over_email_send_rate_limit' || parsed?.code === 429) {
+        msg = 'Limite de envio de e-mails atingido. Aguarde alguns minutos e tente novamente.';
+      }
+    } catch(_) {}
+    toast(msg, 'e');
+    return;
+  }
+  toast(`Confirmação reenviada para ${nome}.`, 's');
 }
 
 // ── Config ────────────────────────────────────────────
