@@ -499,7 +499,7 @@ tr:hover td{background:#fafafa;}
           <button class="btn btn-og btn-sm" id="btn-novo-user" onclick="openUserModal()">+ Novo usuário</button>
         </div>
         <table>
-          <thead><tr><th>Nome</th><th>E-mail</th><th>Cargo</th><th>Perfil</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>Nome</th><th>E-mail</th><th>Cargo</th><th>Perfil</th><th>Status</th><th style="width:130px;"></th></tr></thead>
           <tbody id="usr-body"><tr><td colspan="6" class="empty">Carregando...</td></tr></tbody>
         </table>
       </div>
@@ -1056,8 +1056,10 @@ async function loadUsers() {
         <td>${u.cargo||'—'}</td>
         <td><span class="badge ${roleColor(u.role)}">${_roleLabel(u.role)}</span></td>
         <td><span class="badge ${u.ativo?'green':'gray'}">${u.ativo?'Ativo':'Inativo'}</span></td>
-        <td>${u.id!==_profile?.id
-          ? `<button class="btn btn-outline btn-sm" onclick="editUser('${u.id}')">&#x270F;&#xFE0F;</button>`
+        <td style="white-space:nowrap;">${u.id!==_profile?.id
+          ? `<button class="btn btn-outline btn-sm" title="Editar" onclick="editUser('${u.id}')">✏️</button>
+             <button class="btn btn-outline btn-sm" title="Reenviar confirmação de e-mail" onclick="resendConfirmation('${u.email}','${u.nome}')">📧</button>
+             <button class="btn btn-outline btn-sm" title="Excluir usuário" style="color:#ef4444;border-color:#fca5a5;" onclick="deleteUser('${u.id}','${u.nome}')">🗑️</button>`
           : '<span style="font-size:.7rem;color:#94a3b8;">você</span>'}</td>
       </tr>`).join('')
     : '<tr><td colspan="6" class="empty">Nenhum usuário</td></tr>';
@@ -1069,7 +1071,7 @@ function openUserModal(data=null) {
   const roles = ['proprietario','gestor','financeiro','engenheiro','encarregado','orcamentista','vendedor'];
   document.getElementById('mdl-body').innerHTML = `
     <div class="field"><label>Nome *</label><input id="mu-nome" value="${data?.nome||''}" placeholder="Nome completo"></div>
-    <div class="field"><label>E-mail *</label><input type="email" id="mu-email" value="${data?.email||''}" placeholder="email@obrasul.com.br" ${isEdit?'disabled':''}></div>
+    <div class="field"><label>E-mail *</label><input type="email" id="mu-email" value="${data?.email||''}" placeholder="email@obrasul.com.br"></div>
     ${!isEdit ? `<div class="field"><label>Senha *</label><input type="password" id="mu-pass" placeholder="Mínimo 6 caracteres"></div>` : ''}
     <div class="field"><label>Cargo / função</label><input id="mu-cargo" value="${data?.cargo||''}" placeholder="Engenheiro, Encarregado..."></div>
     <div class="field"><label>Perfil de acesso *</label><select id="mu-role">
@@ -1092,9 +1094,19 @@ function openUserModal(data=null) {
       if (pe) { toast('Erro perfil: '+pe.message,'e'); return false; }
       toast('Usuário criado!','s');
     } else {
+      const novoEmail = document.getElementById('mu-email').value.trim();
       const payload = { nome, cargo, role, ativo: document.getElementById('mu-ativo').value==='true' };
       const { error } = await sb.from('obs_perfis').update(payload).eq('id',data.id);
       if (error) { toast('Erro: '+error.message,'e'); return false; }
+      if (novoEmail && novoEmail !== data.email) {
+        const r = await fetch('/api/admin-users', {
+          method: 'PATCH',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ userId: data.id, email: novoEmail })
+        });
+        const rj = await r.json();
+        if (rj.erro) { toast('Erro ao atualizar e-mail: '+rj.erro,'e'); return false; }
+      }
       toast('Usuário atualizado!','s');
     }
     loadUsers();
@@ -1105,6 +1117,32 @@ function openUserModal(data=null) {
 async function editUser(id) {
   const { data } = await sb.from('obs_perfis').select('*').eq('id',id).single();
   openUserModal(data);
+}
+
+async function deleteUser(id, nome) {
+  if (!confirm(`Excluir o usuário "${nome}"? Esta ação não pode ser desfeita.`)) return;
+  const btn = event.target;
+  btn.disabled = true; btn.textContent = '...';
+  const r = await fetch('/api/admin-users', {
+    method: 'DELETE',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ userId: id })
+  });
+  const rj = await r.json();
+  if (rj.erro) { toast('Erro: '+rj.erro,'e'); btn.disabled=false; btn.textContent='🗑️'; return; }
+  toast(`Usuário "${nome}" excluído.`,'s');
+  loadUsers();
+}
+
+async function resendConfirmation(email, nome) {
+  const r = await fetch('/api/admin-users', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ email })
+  });
+  const rj = await r.json();
+  if (rj.erro) { toast('Erro: '+rj.erro,'e'); return; }
+  toast(`Confirmação reenviada para ${nome}.`,'s');
 }
 
 // ── Config ────────────────────────────────────────────
