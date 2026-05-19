@@ -559,7 +559,7 @@ tr:hover td{background:#fafafa;}
 const SB_URL = 'https://jmjbdundgbbefvhvyffb.supabase.co';
 const SB_KEY = 'sb_publishable_CeLpQY1DjpWfv8U2lSMmew_Uqq6OchZ';
 const { createClient } = supabase;
-const _authOpts = { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storage: window.localStorage } };
+const _authOpts = { auth: { storageKey: 'sb-obrasul', persistSession: true, autoRefreshToken: true, detectSessionInUrl: false } };
 const sb = createClient(SB_URL, SB_KEY, _authOpts);
 const sbAdmin = createClient(SB_URL, SB_KEY, _authOpts);
 

@@ -281,7 +281,7 @@ body{font-family:"Segoe UI",system-ui,sans-serif;background:#f1f5f9;color:#1e293
 <script>
 const SB_URL='https://jmjbdundgbbefvhvyffb.supabase.co';
 const SB_KEY='sb_publishable_CeLpQY1DjpWfv8U2lSMmew_Uqq6OchZ';
-const sb=supabase.createClient(SB_URL,SB_KEY);
+const sb=supabase.createClient(SB_URL,SB_KEY,{ auth: { storageKey: 'sb-obrasul', persistSession: true, autoRefreshToken: true, detectSessionInUrl: false } });
 
 let _msgs=[];
 let _obras=[];
