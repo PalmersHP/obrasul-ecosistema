@@ -394,7 +394,8 @@ const TOOLS = [
         obra_id: { type: 'string', description: 'UUID da obra. Use listar_obras para encontrar.' }
       },
       required: ['obra_id']
-    }
+    },
+    cache_control: { type: 'ephemeral' }
   }
 ];
 
@@ -768,7 +769,7 @@ module.exports = async function handler(req, res) {
       const apiRes = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-        body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 2048, system: SYSTEM, messages: msgs, tools: TOOLS })
+        body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 2048, system: [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }], messages: msgs, tools: TOOLS })
       });
 
       const data = await apiRes.json();
