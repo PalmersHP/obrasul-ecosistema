@@ -1088,10 +1088,13 @@ function openUserModal(data=null) {
     if (!isEdit) {
       const pass = document.getElementById('mu-pass').value;
       if (!email || pass.length < 6) { toast('E-mail e senha (mín. 6 chars) obrigatórios','w'); return false; }
-      const { data: au, error: ae } = await sbAdmin.auth.signUp({ email, password: pass });
-      if (ae) { toast('Erro auth: '+ae.message,'e'); return false; }
-      const { error: pe } = await sb.from('obs_perfis').insert({ id: au.user.id, nome, email, cargo, role, ativo: true });
-      if (pe) { toast('Erro perfil: '+pe.message,'e'); return false; }
+      const r = await fetch('/api/admin-users', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ action:'create', email, password: pass, nome, cargo, role })
+      });
+      const rj = await r.json();
+      if (rj.erro) { toast('Erro: '+rj.erro,'e'); return false; }
       toast('Usuário criado!','s');
     } else {
       const novoEmail = document.getElementById('mu-email').value.trim();

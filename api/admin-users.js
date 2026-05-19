@@ -56,11 +56,34 @@ module.exports = async function handler(req, res) {
     return res.json({ sucesso: true });
   }
 
-  // ── POST: reenviar e-mail de confirmação ─────────────────────────────────
+  // ── POST: criar usuário ou reenviar confirmação ──────────────────────────
   if (req.method === 'POST') {
-    const { email } = body;
-    if (!email) return res.status(400).json({ erro: 'email obrigatório.' });
+    const { action, email, password, nome, cargo, role } = body;
 
+    // Criar novo usuário via admin API (sem rate limit, sem e-mail de confirmação obrigatório)
+    if (action === 'create') {
+      if (!email || !password || !nome) return res.status(400).json({ erro: 'email, password e nome obrigatórios.' });
+
+      const r = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
+        method: 'POST',
+        headers: hdrs(),
+        body: JSON.stringify({ email, password, email_confirm: true }),
+      });
+      if (!r.ok) return res.status(r.status).json({ erro: await r.text() });
+      const { id: userId } = await r.json();
+
+      // Cria perfil no obs_perfis
+      await fetch(`${SUPABASE_URL}/rest/v1/obs_perfis`, {
+        method: 'POST',
+        headers: { ...hdrs(), Prefer: 'return=minimal' },
+        body: JSON.stringify({ id: userId, nome, email, cargo: cargo||'', role: role||'engenheiro', ativo: true }),
+      });
+
+      return res.json({ sucesso: true, userId });
+    }
+
+    // Reenviar e-mail de confirmação
+    if (!email) return res.status(400).json({ erro: 'email obrigatório.' });
     const r = await fetch(`${SUPABASE_URL}/auth/v1/resend`, {
       method: 'POST',
       headers: hdrs(),
