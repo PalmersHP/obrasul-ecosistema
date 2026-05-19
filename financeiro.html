@@ -925,7 +925,8 @@ function openPrintWindow(title,content){
 <div class="hdr"><div><div class="logo">OBRAS<span>UL</span></div><div class="ttl">${title}</div></div>
 <div class="meta"><div>${new Date().toLocaleDateString('pt-BR')}</div>
 <button onclick="window.print()" class="no-print" style="margin-top:8px;background:#E87722;color:#fff;border:none;padding:6px 14px;border-radius:4px;cursor:pointer;font-weight:700;">🖨️ Imprimir / Salvar PDF</button></div></div>
-${content}</body></html>`);
+${content}<script src="chat-widget.js"></script>
+</body></html>`);
   w.document.close();w.focus();
 }
 
@@ -1182,5 +1183,6 @@ async function deleteDesp(id){if(!confirm('Excluir esta despesa?'))return;await 
 // restore sidebar state
 (()=>{const _sc=localStorage.getItem('obs_sidebar')==='1';if(_sc){document.getElementById('sidebar')?.classList.add('collapsed');document.getElementById('main-wrap')?.classList.add('expanded');}})();
 </script>
+<script src="chat-widget.js"></script>
 </body>
 </html>
