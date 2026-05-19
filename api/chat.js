@@ -438,6 +438,15 @@ async function sbPatch(table, id, body) {
 
 const today = () => new Date().toISOString().split('T')[0];
 
+// Cache da unidade (buscada uma vez por instância de função)
+let _unidadeId = null;
+async function getUnidadeId() {
+  if (_unidadeId) return _unidadeId;
+  const rows = await sbGet('obs_unidades', { select: 'id', limit: '1' });
+  _unidadeId = rows[0]?.id || null;
+  return _unidadeId;
+}
+
 // ── Executores de Tool ──────────────────────────────────────────────────────
 
 async function executeTool(name, input) {
@@ -455,6 +464,7 @@ async function executeTool(name, input) {
 
       case 'criar_obra': {
         const rows = await sbInsert('obs_projects', {
+          unidade_id: await getUnidadeId(),
           nome: input.nome,
           client_id: input.cliente_id || null,
           tipo_servico: input.tipo_servico || 'outro',
@@ -491,6 +501,7 @@ async function executeTool(name, input) {
 
       case 'criar_cliente': {
         const rows = await sbInsert('obs_clients', {
+          unidade_id: await getUnidadeId(),
           nome: input.nome,
           tipo: input.tipo || 'condominio',
           cnpj: input.cnpj || '',
@@ -530,6 +541,7 @@ async function executeTool(name, input) {
 
       case 'criar_receita': {
         const rows = await sbInsert('obs_receivables', {
+          unidade_id: await getUnidadeId(),
           descricao: input.descricao, valor: input.valor,
           data_vencimento: input.data_vencimento,
           project_id: input.obra_id || null,
@@ -540,6 +552,7 @@ async function executeTool(name, input) {
 
       case 'criar_despesa': {
         const rows = await sbInsert('obs_payables', {
+          unidade_id: await getUnidadeId(),
           descricao: input.descricao, valor: input.valor,
           data_vencimento: input.data_vencimento,
           project_id: input.obra_id || null,
@@ -575,6 +588,7 @@ async function executeTool(name, input) {
 
       case 'criar_pedido_compra': {
         const rows = await sbInsert('obs_purchase_requests', {
+          unidade_id: await getUnidadeId(),
           descricao: input.descricao, quantidade: input.quantidade, unidade: input.unidade,
           valor_estimado: input.valor_estimado || null,
           project_id: input.obra_id || null,
@@ -603,6 +617,7 @@ async function executeTool(name, input) {
 
       case 'criar_funcionario': {
         const rows = await sbInsert('obs_employees', {
+          unidade_id: await getUnidadeId(),
           nome: input.nome,
           funcao: input.funcao || '',
           tipo_vinculo: input.tipo_vinculo || 'clt',
