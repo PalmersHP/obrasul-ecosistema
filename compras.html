@@ -298,10 +298,12 @@ document.addEventListener('DOMContentLoaded',async()=>{
   _sl.onload=()=>{_sl.style.display='';if(_slt)_slt.style.display='none';};
   _sl.onerror=()=>{_sl.style.display='none';if(_slt)_slt.style.display='';};
   _sl.src=logo;
-  const{data:{session}}=await sb.auth.getSession();
-  if(session)await _afterLogin(session.user);
-  else showLogin();
-  sb.auth.onAuthStateChange(async(_ev,sess)=>{if(sess)await _afterLogin(sess.user);});
+  sb.auth.onAuthStateChange(async(evt,sess)=>{
+    if(evt==='INITIAL_SESSION'||evt==='SIGNED_IN'){
+      if(sess)await _afterLogin(sess.user);
+      else showLogin();
+    }
+  });
 });
 function showLogin(){location.href='index.html';}
 async function _afterLogin(user){

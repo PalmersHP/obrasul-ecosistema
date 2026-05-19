@@ -850,10 +850,8 @@ function toast(msg, kind=''){
 function escapeHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 // ── AUTH ──────────────────────────────────────────────
-async function checkAuth(){
-  const { data: { session } } = await sb.auth.getSession();
-  if(!session){ showLogin(); return; }
-  const { data: profile } = await sb.from('obs_perfis').select('*').eq('id', session.user.id).single();
+async function checkAuth(user){
+  const { data: profile } = await sb.from('obs_perfis').select('*').eq('id', user.id).single();
   if(!profile){ showLogin(); return; }
   _profile = profile;
   document.getElementById('login-overlay').style.display = 'none';
@@ -865,15 +863,21 @@ async function checkAuth(){
   await loadAll();
 }
 function showLogin(){location.href='index.html';}
+sb.auth.onAuthStateChange(async(evt,sess)=>{
+  if(evt==='INITIAL_SESSION'||evt==='SIGNED_IN'){
+    if(sess)await checkAuth(sess.user);
+    else showLogin();
+  }
+});
 async function doLogin(){
   const email = document.getElementById('li-email').value.trim();
   const pass  = document.getElementById('li-pass').value;
   const err = document.getElementById('li-err'); err.style.display='none';
   const btn = document.getElementById('li-btn'); btn.disabled = true; btn.textContent = 'Entrando...';
-  const { error } = await sb.auth.signInWithPassword({ email, password: pass });
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
   btn.disabled = false; btn.textContent = 'Entrar';
   if(error){ err.textContent = error.message; err.style.display='block'; return; }
-  await checkAuth();
+  if(data?.user) await checkAuth(data.user);
 }
 async function doLogout(){ await sb.auth.signOut(); location.reload(); }
 
@@ -1792,7 +1796,7 @@ function recalcFinanciamento(){
 }
 
 // ── INIT ──────────────────────────────────────────────
-checkAuth();
+// auth iniciado via onAuthStateChange acima
 
 // restore sidebar state
 (()=>{const _sc=localStorage.getItem('obs_sidebar')==='1';if(_sc){document.getElementById('sidebar')?.classList.add('collapsed');document.getElementById('main')?.classList.add('expanded');}})();

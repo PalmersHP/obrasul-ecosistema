@@ -637,10 +637,12 @@ document.addEventListener('DOMContentLoaded',async()=>{
   sbLogoEl.onload = ()=>{ sbLogoEl.style.display=''; if(sbLogoText) sbLogoText.style.display='none'; };
   sbLogoEl.onerror = ()=>{ sbLogoEl.style.display='none'; if(sbLogoText) sbLogoText.style.display=''; };
   sbLogoEl.src = logo;
-  const {data:{session}}=await sb.auth.getSession();
-  if(session) await _afterLogin(session.user);
-  else showLogin();
-  sb.auth.onAuthStateChange(async(_ev,sess)=>{if(sess)await _afterLogin(sess.user);});
+  sb.auth.onAuthStateChange(async(evt,sess)=>{
+    if(evt==='INITIAL_SESSION'||evt==='SIGNED_IN'){
+      if(sess)await _afterLogin(sess.user);
+      else showLogin();
+    }
+  });
 });
 
 function showLogin(){location.href='index.html';}
